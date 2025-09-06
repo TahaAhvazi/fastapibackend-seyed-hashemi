@@ -15,7 +15,7 @@ from app.db.session import get_db
 router = APIRouter()
 
 
-@router.post("/login", response_model=schemas.Token)
+@router.post("/login", response_model=schemas.TokenWithRole)
 async def login_access_token(
     db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
@@ -43,6 +43,7 @@ async def login_access_token(
             user.id, expires_delta=access_token_expires
         ),
         "token_type": "bearer",
+        "role": user.role,
     }
 
 

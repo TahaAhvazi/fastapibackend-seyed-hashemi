@@ -1,6 +1,6 @@
 # Import all schemas to make them available
 from app.schemas.user import UserCreate, UserUpdate, User, UserRole
-from app.schemas.token import Token, TokenPayload
+from app.schemas.token import Token, TokenPayload, TokenWithRole
 from app.schemas.product import ProductCreate, ProductUpdate, Product
 from app.schemas.customer import CustomerCreate, CustomerUpdate, Customer, CustomerDetail, BankAccountCreate, BankAccountUpdate, BankAccount
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice, InvoiceItemCreate, InvoiceItem, InvoiceStatus, PaymentType, InvoiceTrackingUpdate
