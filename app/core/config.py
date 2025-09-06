@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    # CORS settings
-    CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000", "http://localhost:8080"]
+    # CORS settings - Allow all origins for development
+    CORS_ORIGINS: List[str] = ["*"]
 
     @validator("CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
