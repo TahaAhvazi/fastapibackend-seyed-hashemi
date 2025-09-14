@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -59,8 +60,10 @@ class CheckUpdate(CheckBase):
 class Check(CheckBase):
     id: int
     created_by: int
-    created_at: str
-    updated_at: str
+    customer: Optional[Dict[str, Any]] = None
+    related_invoice: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True

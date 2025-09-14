@@ -30,8 +30,8 @@ async def read_checks(
     Retrieve checks with optional filtering
     """
     query = select(models.Check).options(
-        selectinload(models.Check.customer),
-        selectinload(models.Check.invoice),
+        selectinload(models.Check.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Check.related_invoice).selectinload(models.Invoice.items),
         selectinload(models.Check.created_by_user)
     )
     
@@ -48,7 +48,45 @@ async def read_checks(
     query = query.order_by(models.Check.due_date.asc()).offset(skip).limit(limit)
     result = await db.execute(query)
     checks = result.scalars().all()
-    return checks
+    
+    # Convert to response format
+    response_checks = []
+    for check in checks:
+        check_dict = {
+            "id": check.id,
+            "check_number": check.check_number,
+            "customer_id": check.customer_id,
+            "amount": check.amount,
+            "issue_date": check.issue_date,
+            "due_date": check.due_date,
+            "status": check.status,
+            "related_invoice_id": check.related_invoice_id,
+            "attachments": check.attachments,
+            "created_by": check.created_by,
+            "created_at": check.created_at,
+            "updated_at": check.updated_at,
+            "customer": {
+                "id": check.customer.id,
+                "first_name": check.customer.first_name,
+                "last_name": check.customer.last_name,
+                "full_name": check.customer.full_name,
+                "phone": check.customer.phone,
+                "city": check.customer.city,
+                "province": check.customer.province,
+                "address": check.customer.address
+            } if check.customer else None,
+            "related_invoice": {
+                "id": check.related_invoice.id,
+                "invoice_number": check.related_invoice.invoice_number,
+                "customer_id": check.related_invoice.customer_id,
+                "total": check.related_invoice.total,
+                "status": check.related_invoice.status,
+                "payment_type": check.related_invoice.payment_type
+            } if check.related_invoice else None
+        }
+        response_checks.append(check_dict)
+    
+    return response_checks
 
 
 @router.post("/", response_model=schemas.Check)
@@ -102,7 +140,40 @@ async def create_check(
     db.add(check)
     await db.commit()
     await db.refresh(check)
-    return check
+    
+    # Convert to response format
+    return {
+        "id": check.id,
+        "check_number": check.check_number,
+        "customer_id": check.customer_id,
+        "amount": check.amount,
+        "issue_date": check.issue_date,
+        "due_date": check.due_date,
+        "status": check.status,
+        "related_invoice_id": check.related_invoice_id,
+        "attachments": check.attachments,
+        "created_by": check.created_by,
+        "created_at": check.created_at,
+        "updated_at": check.updated_at,
+        "customer": {
+            "id": customer.id,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "full_name": customer.full_name,
+            "phone": customer.phone,
+            "city": customer.city,
+            "province": customer.province,
+            "address": customer.address
+        },
+        "related_invoice": {
+            "id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "customer_id": invoice.customer_id,
+            "total": invoice.total,
+            "status": invoice.status,
+            "payment_type": invoice.payment_type
+        } if invoice else None
+    }
 
 
 @router.get("/{check_id}", response_model=schemas.Check)
@@ -116,7 +187,7 @@ async def read_check(
     """
     query = select(models.Check).options(
         selectinload(models.Check.customer),
-        selectinload(models.Check.invoice),
+        selectinload(models.Check.related_invoice),
         selectinload(models.Check.created_by_user)
     ).where(models.Check.id == check_id)
     
@@ -129,7 +200,39 @@ async def read_check(
             detail="چک یافت نشد",  # Check not found
         )
     
-    return check
+    # Convert to response format
+    return {
+        "id": check.id,
+        "check_number": check.check_number,
+        "customer_id": check.customer_id,
+        "amount": check.amount,
+        "issue_date": check.issue_date,
+        "due_date": check.due_date,
+        "status": check.status,
+        "related_invoice_id": check.related_invoice_id,
+        "attachments": check.attachments,
+        "created_by": check.created_by,
+        "created_at": check.created_at,
+        "updated_at": check.updated_at,
+        "customer": {
+            "id": check.customer.id,
+            "first_name": check.customer.first_name,
+            "last_name": check.customer.last_name,
+            "full_name": check.customer.full_name,
+            "phone": check.customer.phone,
+            "city": check.customer.city,
+            "province": check.customer.province,
+            "address": check.customer.address
+        } if check.customer else None,
+        "related_invoice": {
+            "id": check.related_invoice.id,
+            "invoice_number": check.related_invoice.invoice_number,
+            "customer_id": check.related_invoice.customer_id,
+            "total": check.related_invoice.total,
+            "status": check.related_invoice.status,
+            "payment_type": check.related_invoice.payment_type
+        } if check.related_invoice else None
+    }
 
 
 @router.put("/{check_id}", response_model=schemas.Check)
@@ -177,7 +280,49 @@ async def update_check(
     db.add(check)
     await db.commit()
     await db.refresh(check)
-    return check
+    
+    # Get related objects for response
+    customer_result = await db.execute(select(models.Customer).where(models.Customer.id == check.customer_id))
+    customer = customer_result.scalars().first()
+    
+    invoice = None
+    if check.related_invoice_id:
+        invoice_result = await db.execute(select(models.Invoice).where(models.Invoice.id == check.related_invoice_id))
+        invoice = invoice_result.scalars().first()
+    
+    # Convert to response format
+    return {
+        "id": check.id,
+        "check_number": check.check_number,
+        "customer_id": check.customer_id,
+        "amount": check.amount,
+        "issue_date": check.issue_date,
+        "due_date": check.due_date,
+        "status": check.status,
+        "related_invoice_id": check.related_invoice_id,
+        "attachments": check.attachments,
+        "created_by": check.created_by,
+        "created_at": check.created_at,
+        "updated_at": check.updated_at,
+        "customer": {
+            "id": customer.id,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "full_name": customer.full_name,
+            "phone": customer.phone,
+            "city": customer.city,
+            "province": customer.province,
+            "address": customer.address
+        } if customer else None,
+        "related_invoice": {
+            "id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "customer_id": invoice.customer_id,
+            "total": invoice.total,
+            "status": invoice.status,
+            "payment_type": invoice.payment_type
+        } if invoice else None
+    }
 
 
 @router.delete("/{check_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
@@ -227,7 +372,49 @@ async def update_check_status(
     db.add(check)
     await db.commit()
     await db.refresh(check)
-    return check
+    
+    # Get related objects for response
+    customer_result = await db.execute(select(models.Customer).where(models.Customer.id == check.customer_id))
+    customer = customer_result.scalars().first()
+    
+    invoice = None
+    if check.related_invoice_id:
+        invoice_result = await db.execute(select(models.Invoice).where(models.Invoice.id == check.related_invoice_id))
+        invoice = invoice_result.scalars().first()
+    
+    # Convert to response format
+    return {
+        "id": check.id,
+        "check_number": check.check_number,
+        "customer_id": check.customer_id,
+        "amount": check.amount,
+        "issue_date": check.issue_date,
+        "due_date": check.due_date,
+        "status": check.status,
+        "related_invoice_id": check.related_invoice_id,
+        "attachments": check.attachments,
+        "created_by": check.created_by,
+        "created_at": check.created_at,
+        "updated_at": check.updated_at,
+        "customer": {
+            "id": customer.id,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "full_name": customer.full_name,
+            "phone": customer.phone,
+            "city": customer.city,
+            "province": customer.province,
+            "address": customer.address
+        } if customer else None,
+        "related_invoice": {
+            "id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "customer_id": invoice.customer_id,
+            "total": invoice.total,
+            "status": invoice.status,
+            "payment_type": invoice.payment_type
+        } if invoice else None
+    }
 
 
 @router.post("/{check_id}/attachments")

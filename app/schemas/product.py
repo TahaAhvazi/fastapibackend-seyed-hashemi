@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -68,8 +69,8 @@ class ProductUpdate(ProductBase):
 # Properties to return via API
 class Product(ProductBase):
     id: int
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True

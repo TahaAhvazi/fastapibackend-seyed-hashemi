@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -87,8 +88,8 @@ class Customer(CustomerBase):
     id: int
     full_name: str
     bank_accounts: List[BankAccount] = []
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True

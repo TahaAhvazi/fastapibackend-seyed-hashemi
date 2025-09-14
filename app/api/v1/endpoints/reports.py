@@ -24,11 +24,29 @@ async def get_income_report(
     """
     Generate income report for a specific date range
     """
+    # Handle default dates - last month if no dates provided
+    today = datetime.now().date()
+    if date_range.start_date and date_range.end_date:
+        try:
+            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
+            )
+    else:
+        # Default to last month
+        end_date = today
+        start_date = today - timedelta(days=30)
+    
     # Get all invoices in the date range that are not cancelled
     query = select(models.Invoice).where(
-        models.Invoice.created_at >= date_range.start_date,
-        models.Invoice.created_at <= date_range.end_date,
+        models.Invoice.created_at >= start_date,
+        models.Invoice.created_at <= end_date,
         models.Invoice.status != schemas.InvoiceStatus.CANCELLED
+    ).options(
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product)
     )
     result = await db.execute(query)
     invoices = result.scalars().all()
@@ -53,10 +71,17 @@ async def get_income_report(
     # Sort revenue by day
     revenue_by_day = dict(sorted(revenue_by_day.items()))
     
+    # Calculate total cost and profit
+    total_cost = sum(
+        sum(item.quantity * item.product.cost_price for item in invoice.items)
+        for invoice in invoices
+    )
+    profit = total_revenue - total_cost
+    
     # Get check status summary
     check_query = select(models.Check).where(
-        models.Check.created_at >= date_range.start_date,
-        models.Check.created_at <= date_range.end_date
+        models.Check.created_at >= start_date,
+        models.Check.created_at <= end_date
     )
     check_result = await db.execute(check_query)
     checks = check_result.scalars().all()
@@ -69,14 +94,14 @@ async def get_income_report(
             "total_amount": sum(c.amount for c in status_checks)
         }
     
+    period = f"{start_date.strftime('%Y-%m-%d')} تا {end_date.strftime('%Y-%m-%d')}"
+    
     return {
-        "start_date": date_range.start_date,
-        "end_date": date_range.end_date,
         "total_revenue": total_revenue,
+        "total_cost": total_cost,
+        "profit": profit,
         "invoice_count": len(invoices),
-        "revenue_by_payment_type": revenue_by_payment_type,
-        "revenue_by_day": revenue_by_day,
-        "check_status_summary": check_status_summary
+        "period": period
     }
 
 
@@ -90,10 +115,26 @@ async def get_product_sales_report(
     """
     Generate product sales report for a specific date range
     """
+    # Handle default dates - last month if no dates provided
+    today = datetime.now().date()
+    if date_range.start_date and date_range.end_date:
+        try:
+            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
+            )
+    else:
+        # Default to last month
+        end_date = today
+        start_date = today - timedelta(days=30)
+    
     # Get all invoice items in the date range from non-cancelled invoices
     query = select(models.InvoiceItem).join(models.Invoice).join(models.Product).where(
-        models.Invoice.created_at >= date_range.start_date,
-        models.Invoice.created_at <= date_range.end_date,
+        models.Invoice.created_at >= start_date,
+        models.Invoice.created_at <= end_date,
         models.Invoice.status != schemas.InvoiceStatus.CANCELLED
     ).options(
         selectinload(models.InvoiceItem.product),
@@ -111,21 +152,16 @@ async def get_product_sales_report(
                 "product_id": product_id,
                 "product_name": item.product.name,
                 "product_code": item.product.code,
-                "total_quantity": 0,
+                "quantity_sold": 0,
                 "total_revenue": 0,
-                "invoice_count": set(),
-                "average_price": 0
+                "profit": 0
             }
         
-        product_sales[product_id]["total_quantity"] += item.quantity
-        product_sales[product_id]["total_revenue"] += item.quantity * item.price
-        product_sales[product_id]["invoice_count"].add(item.invoice_id)
-    
-    # Calculate average price and convert invoice_count to length
-    for product_id, data in product_sales.items():
-        if data["total_quantity"] > 0:
-            data["average_price"] = data["total_revenue"] / data["total_quantity"]
-        data["invoice_count"] = len(data["invoice_count"])
+        product_sales[product_id]["quantity_sold"] += item.quantity
+        revenue = item.quantity * item.price
+        cost = item.quantity * item.product.cost_price
+        product_sales[product_id]["total_revenue"] += revenue
+        product_sales[product_id]["profit"] += (revenue - cost)
     
     # Convert to list and sort by total revenue
     product_sales_list = list(product_sales.values())
@@ -144,10 +180,26 @@ async def get_customer_sales_report(
     """
     Generate customer sales report for a specific date range
     """
+    # Handle default dates - last month if no dates provided
+    today = datetime.now().date()
+    if date_range.start_date and date_range.end_date:
+        try:
+            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
+            )
+    else:
+        # Default to last month
+        end_date = today
+        start_date = today - timedelta(days=30)
+    
     # Get all invoices in the date range that are not cancelled
     query = select(models.Invoice).join(models.Customer).where(
-        models.Invoice.created_at >= date_range.start_date,
-        models.Invoice.created_at <= date_range.end_date,
+        models.Invoice.created_at >= start_date,
+        models.Invoice.created_at <= end_date,
         models.Invoice.status != schemas.InvoiceStatus.CANCELLED
     ).options(
         selectinload(models.Invoice.customer),
@@ -166,18 +218,16 @@ async def get_customer_sales_report(
                 "customer_name": f"{invoice.customer.first_name} {invoice.customer.last_name}",
                 "total_purchases": 0,
                 "invoice_count": 0,
-                "average_purchase": 0,
-                "total_items": 0
+                "last_purchase_date": None
             }
         
         customer_sales[customer_id]["total_purchases"] += invoice.total
         customer_sales[customer_id]["invoice_count"] += 1
-        customer_sales[customer_id]["total_items"] += sum(item.quantity for item in invoice.items)
-    
-    # Calculate average purchase
-    for customer_id, data in customer_sales.items():
-        if data["invoice_count"] > 0:
-            data["average_purchase"] = data["total_purchases"] / data["invoice_count"]
+        
+        # Update last purchase date
+        current_date = invoice.created_at.strftime("%Y-%m-%d")
+        if not customer_sales[customer_id]["last_purchase_date"] or current_date > customer_sales[customer_id]["last_purchase_date"]:
+            customer_sales[customer_id]["last_purchase_date"] = current_date
     
     # Convert to list and sort by total purchases
     customer_sales_list = list(customer_sales.values())
@@ -301,19 +351,42 @@ async def get_dashboard_summary(
         for customer, total_purchases in top_customers_data
     ]
     
+    # Return dashboard summary matching DashboardSummary schema
+    # Get top selling products this month
+    top_products_query = select(
+        models.Product,
+        func.sum(models.InvoiceItem.quantity).label("quantity_sold")
+    ).join(
+        models.InvoiceItem, models.Product.id == models.InvoiceItem.product_id
+    ).join(
+        models.Invoice, models.InvoiceItem.invoice_id == models.Invoice.id
+    ).where(
+        models.Invoice.created_at >= start_of_month,
+        models.Invoice.status != schemas.InvoiceStatus.CANCELLED
+    ).group_by(models.Product.id).order_by(desc("quantity_sold")).limit(5)
+    
+    top_products_result = await db.execute(top_products_query)
+    top_products_data = top_products_result.all()
+    
+    top_selling_products = [
+        {
+            "product_id": product.id,
+            "product_name": product.name,
+            "quantity_sold": int(quantity_sold)
+        }
+        for product, quantity_sold in top_products_data
+    ]
+    
     # Return dashboard summary
     return {
-        "revenue": {
-            "today": today_revenue,
-            "this_month": month_revenue,
-            "last_month": last_month_revenue,
-            "month_growth": month_growth
-        },
-        "invoice_status_counts": invoice_status_counts,
-        "check_status_counts": check_status_counts,
-        "low_stock_products": low_stock_items,
-        "recent_invoices": recent_invoice_items,
-        "top_customers": top_customers
+        "total_revenue_current_month": month_revenue,
+        "total_revenue_previous_month": last_month_revenue,
+        "revenue_change_percentage": month_growth,
+        "pending_invoices_count": invoice_status_counts.get("pending", 0),
+        "checks_in_progress_count": check_status_counts.get("in_progress", 0),
+        "low_stock_products_count": len(low_stock_items),
+        "top_selling_products": top_selling_products,
+        "recent_invoices": recent_invoice_items
     }
 
 

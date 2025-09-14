@@ -1,11 +1,11 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, datetime, timedelta
 
 
 class DateRangeParams(BaseModel):
-    start_date: str
-    end_date: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
     class Config:
         schema_extra = {
