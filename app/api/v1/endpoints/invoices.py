@@ -163,7 +163,15 @@ async def create_invoice(
     
     await db.commit()
     await db.refresh(invoice)
-    return invoice
+    
+    # Reload invoice with items to avoid lazy loading issues
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items)
+    ).where(models.Invoice.id == invoice.id)
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.get("/{invoice_id}", response_model=schemas.Invoice)
@@ -299,7 +307,15 @@ async def approve_invoice(
     
     await db.commit()
     await db.refresh(invoice)
-    return invoice
+    
+    # Reload invoice with items to avoid lazy loading issues
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items)
+    ).where(models.Invoice.id == invoice_id)
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.post("/{invoice_id}/ship", response_model=schemas.Invoice)
@@ -389,7 +405,15 @@ async def deliver_invoice(
     
     await db.commit()
     await db.refresh(invoice)
-    return invoice
+    
+    # Reload invoice with items to avoid lazy loading issues
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items)
+    ).where(models.Invoice.id == invoice_id)
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.post("/{invoice_id}/cancel", response_model=schemas.Invoice)

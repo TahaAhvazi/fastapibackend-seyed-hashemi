@@ -85,7 +85,15 @@ async def create_customer(
     
     await db.commit()
     await db.refresh(customer)
-    return customer
+    
+    # Reload customer with bank_accounts to avoid lazy loading issues
+    query = select(models.Customer).options(
+        selectinload(models.Customer.bank_accounts)
+    ).where(models.Customer.id == customer.id)
+    result = await db.execute(query)
+    customer_with_accounts = result.scalars().first()
+    
+    return customer_with_accounts
 
 
 @router.get("/{customer_id}", response_model=schemas.CustomerDetail)
@@ -185,7 +193,15 @@ async def update_customer(
     db.add(customer)
     await db.commit()
     await db.refresh(customer)
-    return customer
+    
+    # Reload customer with bank_accounts to avoid lazy loading issues
+    query = select(models.Customer).options(
+        selectinload(models.Customer.bank_accounts)
+    ).where(models.Customer.id == customer_id)
+    result = await db.execute(query)
+    customer_with_accounts = result.scalars().first()
+    
+    return customer_with_accounts
 
 
 @router.delete("/{customer_id}", response_model=schemas.Customer)
@@ -198,8 +214,13 @@ async def delete_customer(
     """
     Delete a customer (admin only)
     """
-    result = await db.execute(select(models.Customer).where(models.Customer.id == customer_id))
+    # First load customer with bank_accounts to avoid lazy loading issues when returning
+    query = select(models.Customer).options(
+        selectinload(models.Customer.bank_accounts)
+    ).where(models.Customer.id == customer_id)
+    result = await db.execute(query)
     customer = result.scalars().first()
+    
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
