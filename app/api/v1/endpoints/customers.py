@@ -123,6 +123,18 @@ async def read_customer(
     invoices_count = len(customer.invoices)
     checks_in_progress_count = sum(1 for check in customer.checks if check.status == CheckStatus.IN_PROGRESS)
     
+    # Convert bank accounts to proper schema format
+    bank_accounts = [
+        schemas.BankAccount(
+            id=ba.id,
+            customer_id=ba.customer_id,
+            bank_name=ba.bank_name,
+            account_number=ba.account_number,
+            iban=ba.iban
+        )
+        for ba in customer.bank_accounts
+    ]
+
     # Create response with additional fields
     customer_detail = schemas.CustomerDetail(
         id=customer.id,
@@ -133,7 +145,7 @@ async def read_customer(
         phone=customer.phone,
         city=customer.city,
         province=customer.province,
-        bank_accounts=customer.bank_accounts,
+        bank_accounts=bank_accounts,
         created_at=customer.created_at,
         updated_at=customer.updated_at,
         total_purchases=total_purchases,
