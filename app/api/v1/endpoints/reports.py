@@ -202,8 +202,9 @@ async def get_customer_sales_report(
         models.Invoice.created_at <= end_date,
         models.Invoice.status != schemas.InvoiceStatus.CANCELLED
     ).options(
-        selectinload(models.Invoice.customer),
-        selectinload(models.Invoice.items)
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.items),
+        selectinload(models.Invoice.created_by_user)
     )
     result = await db.execute(query)
     invoices = result.scalars().all()
@@ -313,7 +314,8 @@ async def get_dashboard_summary(
     
     # Get recent invoices
     recent_invoices_query = select(models.Invoice).options(
-        selectinload(models.Invoice.customer)
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
     ).order_by(desc(models.Invoice.created_at)).limit(5)
     recent_invoices_result = await db.execute(recent_invoices_query)
     recent_invoices = recent_invoices_result.scalars().all()

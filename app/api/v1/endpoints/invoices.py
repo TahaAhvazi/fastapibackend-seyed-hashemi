@@ -35,7 +35,7 @@ async def read_invoices(
     """
     query = select(models.Invoice).options(
         selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
-        selectinload(models.Invoice.customer),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     )
     
@@ -185,7 +185,7 @@ async def read_invoice(
     """
     query = select(models.Invoice).options(
         selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
-        selectinload(models.Invoice.customer),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
     

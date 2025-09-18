@@ -3,6 +3,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel
 
+from app.schemas.user import User
+
 
 class CheckStatus(str, Enum):
     IN_PROGRESS = "in_progress"  # در جریان وصول
@@ -62,6 +64,7 @@ class Check(CheckBase):
     created_by: int
     customer: Optional[Dict[str, Any]] = None
     related_invoice: Optional[Dict[str, Any]] = None
+    created_by_user: Optional[User] = None  # Complete user information
     created_at: datetime
     updated_at: datetime
 
@@ -79,6 +82,14 @@ class Check(CheckBase):
                 "related_invoice_id": 2,
                 "attachments": ["uploads/checks/check_12345678.jpg"],
                 "created_by": 1,
+                "created_by_user": {
+                    "id": 1,
+                    "email": "admin@example.com",
+                    "first_name": "محمد",  # Mohammad
+                    "last_name": "احمدی",  # Ahmadi
+                    "role": "admin",
+                    "is_active": True
+                },
                 "created_at": "2023-01-15T10:30:00",
                 "updated_at": "2023-01-15T10:30:00"
             }

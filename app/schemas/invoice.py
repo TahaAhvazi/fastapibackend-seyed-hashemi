@@ -3,6 +3,10 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+from app.schemas.customer import Customer
+from app.schemas.product import Product
+from app.schemas.user import User
+
 
 class InvoiceStatus(str, Enum):
     DRAFT = "draft"
@@ -46,6 +50,7 @@ class InvoiceItem(InvoiceItemBase):
     id: int
     invoice_id: int
     total_price: float
+    product: Optional[Product] = None  # Complete product information
 
     class Config:
         orm_mode = True
@@ -57,7 +62,26 @@ class InvoiceItem(InvoiceItemBase):
                 "quantity": 5,
                 "unit": "متر",  # Meter
                 "price": 350000,
-                "total_price": 1750000
+                "total_price": 1750000,
+                "product": {
+                    "id": 1,
+                    "code": "P001",
+                    "name": "پارچه کتان",  # Cotton Fabric
+                    "description": "پارچه کتان با کیفیت عالی",  # High quality cotton fabric
+                    "image_url": "/uploads/cotton.jpg",
+                    "year_production": 1401,
+                    "category": "کتان",  # Cotton
+                    "unit": "متر",  # Meter
+                    "pieces_per_roll": 50,
+                    "quantity_available": 200,
+                    "colors": "سفید، آبی، قرمز",  # White, Blue, Red
+                    "part_number": "CTN-001",
+                    "reorder_location": "تهران، بازار",  # Tehran, Bazaar
+                    "purchase_price": 250000,
+                    "sale_price": 350000,
+                    "created_at": "2023-01-15T10:30:00",
+                    "updated_at": "2023-01-15T10:30:00"
+                }
             }
         }
 
@@ -139,6 +163,8 @@ class Invoice(InvoiceBase):
     total: float
     status: InvoiceStatus
     items: List[InvoiceItem] = []
+    customer: Optional[Customer] = None  # Complete customer information
+    created_by_user: Optional[User] = None  # Complete user information
     created_at: datetime
     updated_at: datetime
 
@@ -154,6 +180,35 @@ class Invoice(InvoiceBase):
                 "total": 1750000,
                 "payment_type": "cash",
                 "status": "warehouse_pending",
+                "customer": {
+                    "id": 1,
+                    "first_name": "رضا",  # Reza
+                    "last_name": "کریمی",  # Karimi
+                    "full_name": "رضا کریمی",  # Reza Karimi
+                    "address": "تهران، خیابان شریعتی، کوچه بهار، پلاک ۲۰",  # Tehran, Shariati St, Bahar Alley, No. 20
+                    "phone": "09121234567",
+                    "city": "تهران",  # Tehran
+                    "province": "تهران",  # Tehran
+                    "bank_accounts": [
+                        {
+                            "id": 1,
+                            "customer_id": 1,
+                            "bank_name": "بانک ملی",  # Bank Melli
+                            "account_number": "0123456789",
+                            "iban": "IR123456789012345678901234"
+                        }
+                    ],
+                    "created_at": "2023-01-15T10:30:00",
+                    "updated_at": "2023-01-15T10:30:00"
+                },
+                "created_by_user": {
+                    "id": 1,
+                    "email": "admin@example.com",
+                    "first_name": "محمد",  # Mohammad
+                    "last_name": "احمدی",  # Ahmadi
+                    "role": "admin",
+                    "is_active": True
+                },
                 "items": [
                     {
                         "id": 1,
