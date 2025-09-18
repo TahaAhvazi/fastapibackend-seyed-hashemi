@@ -1,17 +1,23 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from datetime import date, datetime, timedelta
+from enum import Enum
 
 
-class DateRangeParams(BaseModel):
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+class ReportType(str, Enum):
+    DAILY = "daily"      # روزانه
+    WEEKLY = "weekly"     # هفتگی
+    MONTHLY = "monthly"   # ماهانه
+    YEARLY = "yearly"     # سالانه
+
+
+class ReportParams(BaseModel):
+    report_type: ReportType
 
     class Config:
         schema_extra = {
             "example": {
-                "start_date": "2023-01-01",
-                "end_date": "2023-01-31"
+                "report_type": "monthly"  # روزانه، هفتگی، ماهانه، یا سالانه
             }
         }
 

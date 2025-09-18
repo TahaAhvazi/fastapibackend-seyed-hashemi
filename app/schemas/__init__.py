@@ -6,4 +6,4 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, Customer, Custo
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice, InvoiceItemCreate, InvoiceItem, InvoiceStatus, PaymentType, InvoiceTrackingUpdate
 from app.schemas.check import CheckCreate, CheckUpdate, Check, CheckStatus
 from app.schemas.inventory import InventoryTransactionCreate, InventoryTransaction, TransactionReason, ProductQuantity, ReserveStock
-from app.schemas.report import IncomeReport, DateRangeParams, ProductSalesReport, CustomerSalesReport, DashboardSummary
+from app.schemas.report import IncomeReport, ReportType, ReportParams, ProductSalesReport, CustomerSalesReport, DashboardSummary

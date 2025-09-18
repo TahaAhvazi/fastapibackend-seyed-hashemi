@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta, date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, and_, desc
@@ -14,31 +14,59 @@ from app.db.session import get_db
 router = APIRouter()
 
 
+def get_date_range_for_report_type(report_type: schemas.ReportType) -> Tuple[date, date]:
+    """
+    Calculate start and end dates based on report type
+    """
+    today = date.today()
+    
+    if report_type == schemas.ReportType.DAILY:
+        # Today
+        return today, today
+    
+    elif report_type == schemas.ReportType.WEEKLY:
+        # This week (Monday to Sunday)
+        start_of_week = today - timedelta(days=today.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+        return start_of_week, end_of_week
+    
+    elif report_type == schemas.ReportType.MONTHLY:
+        # This month
+        start_of_month = today.replace(day=1)
+        if today.month == 12:
+            end_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        return start_of_month, end_of_month
+    
+    elif report_type == schemas.ReportType.YEARLY:
+        # This year
+        start_of_year = today.replace(month=1, day=1)
+        end_of_year = today.replace(month=12, day=31)
+        return start_of_year, end_of_year
+    
+    else:
+        # Default to monthly
+        start_of_month = today.replace(day=1)
+        if today.month == 12:
+            end_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        return start_of_month, end_of_month
+
+
 @router.post("/income", response_model=schemas.IncomeReport)
 async def get_income_report(
     *,
     db: AsyncSession = Depends(get_db),
-    date_range: schemas.DateRangeParams,
+    report_params: schemas.ReportParams,
     current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
 ) -> Any:
     """
-    Generate income report for a specific date range
+    Generate income report for a specific period (daily, weekly, monthly, yearly)
     """
-    # Handle default dates - last month if no dates provided
-    today = datetime.now().date()
-    if date_range.start_date and date_range.end_date:
-        try:
-            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
-            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
-            )
-    else:
-        # Default to last month
-        end_date = today
-        start_date = today - timedelta(days=30)
+    # Get date range based on report type
+    start_date, end_date = get_date_range_for_report_type(report_params.report_type)
     
     # Get all invoices in the date range that are not cancelled
     query = select(models.Invoice).where(
@@ -73,7 +101,7 @@ async def get_income_report(
     
     # Calculate total cost and profit
     total_cost = sum(
-        sum(item.quantity * item.product.cost_price for item in invoice.items)
+        sum(item.quantity * item.product.purchase_price for item in invoice.items)
         for invoice in invoices
     )
     profit = total_revenue - total_cost
@@ -94,7 +122,17 @@ async def get_income_report(
             "total_amount": sum(c.amount for c in status_checks)
         }
     
-    period = f"{start_date.strftime('%Y-%m-%d')} تا {end_date.strftime('%Y-%m-%d')}"
+    # Create period description based on report type
+    if report_params.report_type == schemas.ReportType.DAILY:
+        period = f"روزانه - {start_date.strftime('%Y-%m-%d')}"
+    elif report_params.report_type == schemas.ReportType.WEEKLY:
+        period = f"هفتگی - {start_date.strftime('%Y-%m-%d')} تا {end_date.strftime('%Y-%m-%d')}"
+    elif report_params.report_type == schemas.ReportType.MONTHLY:
+        period = f"ماهانه - {start_date.strftime('%Y-%m')}"
+    elif report_params.report_type == schemas.ReportType.YEARLY:
+        period = f"سالانه - {start_date.strftime('%Y')}"
+    else:
+        period = f"{start_date.strftime('%Y-%m-%d')} تا {end_date.strftime('%Y-%m-%d')}"
     
     return {
         "total_revenue": total_revenue,
@@ -109,27 +147,14 @@ async def get_income_report(
 async def get_product_sales_report(
     *,
     db: AsyncSession = Depends(get_db),
-    date_range: schemas.DateRangeParams,
+    report_params: schemas.ReportParams,
     current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
 ) -> Any:
     """
-    Generate product sales report for a specific date range
+    Generate product sales report for a specific period (daily, weekly, monthly, yearly)
     """
-    # Handle default dates - last month if no dates provided
-    today = datetime.now().date()
-    if date_range.start_date and date_range.end_date:
-        try:
-            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
-            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
-            )
-    else:
-        # Default to last month
-        end_date = today
-        start_date = today - timedelta(days=30)
+    # Get date range based on report type
+    start_date, end_date = get_date_range_for_report_type(report_params.report_type)
     
     # Get all invoice items in the date range from non-cancelled invoices
     query = select(models.InvoiceItem).join(models.Invoice).join(models.Product).where(
@@ -159,7 +184,7 @@ async def get_product_sales_report(
         
         product_sales[product_id]["quantity_sold"] += item.quantity
         revenue = item.quantity * item.price
-        cost = item.quantity * item.product.cost_price
+        cost = item.quantity * item.product.purchase_price
         product_sales[product_id]["total_revenue"] += revenue
         product_sales[product_id]["profit"] += (revenue - cost)
     
@@ -174,27 +199,14 @@ async def get_product_sales_report(
 async def get_customer_sales_report(
     *,
     db: AsyncSession = Depends(get_db),
-    date_range: schemas.DateRangeParams,
+    report_params: schemas.ReportParams,
     current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
 ) -> Any:
     """
-    Generate customer sales report for a specific date range
+    Generate customer sales report for a specific period (daily, weekly, monthly, yearly)
     """
-    # Handle default dates - last month if no dates provided
-    today = datetime.now().date()
-    if date_range.start_date and date_range.end_date:
-        try:
-            start_date = datetime.strptime(date_range.start_date, "%Y-%m-%d").date()
-            end_date = datetime.strptime(date_range.end_date, "%Y-%m-%d").date()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="فرمت تاریخ نامعتبر است. از فرمت YYYY-MM-DD استفاده کنید."
-            )
-    else:
-        # Default to last month
-        end_date = today
-        start_date = today - timedelta(days=30)
+    # Get date range based on report type
+    start_date, end_date = get_date_range_for_report_type(report_params.report_type)
     
     # Get all invoices in the date range that are not cancelled
     query = select(models.Invoice).join(models.Customer).where(
@@ -422,10 +434,10 @@ async def get_customer_balance(
     # Calculate total purchases
     total_purchases = sum(invoice.total for invoice in invoices)
     
-    # Get all checks for this customer that are processed (passed)
+    # Get all checks for this customer that are cleared (passed)
     check_query = select(models.Check).where(
         models.Check.customer_id == customer_id,
-        models.Check.status == schemas.CheckStatus.PROCESSED
+        models.Check.status == schemas.CheckStatus.CLEARED
     )
     check_result = await db.execute(check_query)
     processed_checks = check_result.scalars().all()
