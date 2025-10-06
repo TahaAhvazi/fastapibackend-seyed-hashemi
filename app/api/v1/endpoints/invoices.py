@@ -421,11 +421,18 @@ async def cancel_invoice(
     *,
     db: AsyncSession = Depends(get_db),
     invoice_id: int,
-    current_user: models.User = Depends(deps.get_current_admin_user),
+    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Cancel an invoice and return stock (admin only)
+    Cancel an invoice and return stock (admin or accountant only)
     """
+    # Check user permissions
+    if current_user.role not in [schemas.UserRole.ADMIN, schemas.UserRole.ACCOUNTANT]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"شما دسترسی لازم برای لغو فاکتور را ندارید. نقش شما: {current_user.role}. نقش‌های مجاز: admin, accountant"  # You don't have permission to cancel invoices. Your role: {current_user.role}. Allowed roles: admin, accountant
+        )
+    
     # Get invoice with items
     query = select(models.Invoice).options(
         selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product)
@@ -441,14 +448,21 @@ async def cancel_invoice(
         )
     
     # Check if invoice can be cancelled
-    if invoice.status in [schemas.InvoiceStatus.DELIVERED, schemas.InvoiceStatus.CANCELLED]:
+    if invoice.status == schemas.InvoiceStatus.CANCELLED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="فاکتور قابل لغو نیست",  # Invoice cannot be cancelled
+            detail="فاکتور قبلاً لغو شده است",  # Invoice is already cancelled
         )
     
+    # Allow cancellation of delivered invoices (admin/accountant can override)
+    # if invoice.status == schemas.InvoiceStatus.DELIVERED:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="فاکتور تحویل شده قابل لغو نیست. وضعیت فعلی: تحویل شده",  # Delivered invoice cannot be cancelled. Current status: delivered
+    #     )
+    
     # If stock was reserved, return it
-    if invoice.status in [schemas.InvoiceStatus.WAREHOUSE_PENDING, schemas.InvoiceStatus.ACCOUNTANT_PENDING, schemas.InvoiceStatus.APPROVED]:
+    if invoice.status in [schemas.InvoiceStatus.WAREHOUSE_PENDING, schemas.InvoiceStatus.ACCOUNTANT_PENDING, schemas.InvoiceStatus.APPROVED, schemas.InvoiceStatus.SHIPPED, schemas.InvoiceStatus.DELIVERED]:
         for item in invoice.items:
             # Create inventory transaction for return
             inventory_transaction = models.InventoryTransaction(
