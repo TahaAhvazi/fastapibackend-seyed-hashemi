@@ -164,9 +164,11 @@ async def create_invoice(
     await db.commit()
     await db.refresh(invoice)
     
-    # Reload invoice with items to avoid lazy loading issues
+    # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice.id)
     result = await db.execute(query)
     invoice_with_items = result.scalars().first()
@@ -224,7 +226,9 @@ async def reserve_invoice_stock(
     """
     # Get invoice with items
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
     
     result = await db.execute(query)
@@ -237,7 +241,7 @@ async def reserve_invoice_stock(
         )
     
     # Check if invoice is in the correct status
-    if invoice.status != schemas.InvoiceStatus.WAREHOUSE_PENDING:
+    if invoice.status not in [schemas.InvoiceStatus.WAREHOUSE_PENDING, schemas.InvoiceStatus.ACCOUNTANT_PENDING]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="فاکتور در وضعیت مناسب برای رزرو موجودی نیست",  # Invoice is not in the correct status for stock reservation
@@ -271,8 +275,18 @@ async def reserve_invoice_stock(
     db.add(invoice)
     
     await db.commit()
-    await db.refresh(invoice)
-    return invoice
+    
+    # Re-fetch invoice with all relationships after commit
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
+    ).where(models.Invoice.id == invoice_id)
+    
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.post("/{invoice_id}/approve", response_model=schemas.Invoice)
@@ -308,9 +322,11 @@ async def approve_invoice(
     await db.commit()
     await db.refresh(invoice)
     
-    # Reload invoice with items to avoid lazy loading issues
+    # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
     result = await db.execute(query)
     invoice_with_items = result.scalars().first()
@@ -370,7 +386,17 @@ async def ship_invoice(
     
     await db.commit()
     await db.refresh(invoice)
-    return invoice
+    
+    # Reload invoice with all relationships to avoid lazy loading issues
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
+    ).where(models.Invoice.id == invoice_id)
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.post("/{invoice_id}/deliver", response_model=schemas.Invoice)
@@ -406,9 +432,11 @@ async def deliver_invoice(
     await db.commit()
     await db.refresh(invoice)
     
-    # Reload invoice with items to avoid lazy loading issues
+    # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
     result = await db.execute(query)
     invoice_with_items = result.scalars().first()
@@ -485,7 +513,17 @@ async def cancel_invoice(
     
     await db.commit()
     await db.refresh(invoice)
-    return invoice
+    
+    # Reload invoice with all relationships to avoid lazy loading issues
+    query = select(models.Invoice).options(
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
+        selectinload(models.Invoice.created_by_user)
+    ).where(models.Invoice.id == invoice_id)
+    result = await db.execute(query)
+    invoice_with_items = result.scalars().first()
+    
+    return invoice_with_items
 
 
 @router.post("/{invoice_id}/attachments")
