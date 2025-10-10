@@ -1,134 +1,114 @@
-# Rancetxe Fabric Store Management System
+# Rancetxe Backend - Invoice Workflow Guide
 
-A comprehensive backend system for managing a Persian fabric store, built with FastAPI and PostgreSQL.
+این راهنما برای تیم فرانت‌اند آماده شده تا جریان کاری ایجاد تا ارسال فاکتور را با نقش‌های مختلف پیاده‌سازی کند.
 
-## Features
+This guide helps the frontend team implement the invoice workflow across roles.
 
-- User authentication and role-based access control (Admin, Accountant, Warehouse)
-- Product management with inventory tracking
-- Customer management with bank account information
-- Invoice creation and processing workflow
-- Check management for payment tracking
-- Comprehensive reporting system
-- File upload and management
+## Roles and Status Flow
+- Admin/Accountant creates invoice → status: `warehouse_pending`
+- Warehouse reserves stock → status: `accountant_pending`
+- Accountant approves invoice → status: `approved`
+- Warehouse ships (adds tracking/waybill info) → status: `shipped`
+- Optional: Warehouse marks delivered → status: `delivered`
+- Optional: Admin/Accountant can cancel at permitted states → status: `cancelled`
 
-## Technology Stack
+## Authentication
+- All endpoints require an authenticated user. Roles: `admin`, `accountant`, `warehouse`.
+- Role-specific endpoints are validated server-side.
 
-- **FastAPI**: Modern, fast web framework for building APIs
-- **PostgreSQL**: Robust relational database
-- **SQLAlchemy**: SQL toolkit and ORM
-- **Alembic**: Database migration tool
-- **Pydantic**: Data validation and settings management
-- **JWT**: Token-based authentication
+## Endpoints Overview
 
-## Setup Instructions
-
-### Prerequisites
-
-- Python 3.8+
-- PostgreSQL
-
-### Installation
-
-1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/rancetxe-backend.git
-cd rancetxe-backend
+### 1) Create Invoice (Admin/Accountant)
+- Method: POST
+- Path: `/api/v1/invoices/`
+- Body (InvoiceCreate):
+```json
+{
+  "customer_id": 1,
+  "payment_type": "cash", // or "check" or "mixed"
+  "payment_breakdown": { "cash": 1000000, "check": 500000 }, // optional for mixed
+  "items": [
+    { "product_id": 1, "quantity": 5, "unit": "متر", "price": 350000 },
+    { "product_id": 2, "quantity": 3, "unit": "متر", "price": 280000 }
+  ]
+}
 ```
+- Response: `Invoice` with `items.product`, `customer(+bank_accounts)`, `created_by_user` eagerly loaded.
+- Next action (Warehouse): Reserve stock.
 
-2. Create and activate a virtual environment
+### 2) Reserve Stock (Warehouse/Admin)
+- Method: POST
+- Path: `/api/v1/invoices/{invoice_id}/reserve`
+- Body: none
+- Effect: checks inventory, creates reservation transactions, decrements `product.quantity_available`, sets status → `accountant_pending`.
+- Next action (Accountant): Approve.
 
-```bash
-python -m venv env
-source env/bin/activate  # On Windows: env\Scripts\activate
+### 3) Approve Invoice (Accountant/Admin)
+- Method: POST
+- Path: `/api/v1/invoices/{invoice_id}/approve`
+- Body: none
+- Effect: status → `approved`.
+- Next action (Warehouse): Ship.
+
+### 4) Ship Invoice (Warehouse/Admin)
+- Method: POST
+- Path: `/api/v1/invoices/{invoice_id}/ship`
+- Body (InvoiceTrackingUpdate):
+```json
+{
+  "carrier_name": "Tipax",
+  "tracking_code": "TPX-123456",
+  "shipping_date": "2025-10-10",
+  "number_of_packages": 3
+}
 ```
+- Effect: creates shipping inventory transactions (no further quantity change), attaches `tracking_info`, status → `shipped`.
+- Next action (Warehouse, optional): Deliver.
 
-3. Install dependencies
+### 5) Mark Delivered (Warehouse/Admin)
+- Method: POST
+- Path: `/api/v1/invoices/{invoice_id}/deliver`
+- Body: none
+- Effect: status → `delivered`.
 
-```bash
-pip install -r requirements.txt
-```
+### 6) Cancel Invoice (Admin/Accountant)
+- Method: POST
+- Path: `/api/v1/invoices/{invoice_id}/cancel`
+- Body: none
+- Effect: returns reserved/used stock via inventory transactions as applicable, status → `cancelled`.
 
-4. Configure environment variables
+## Reading Invoices
 
-Create a `.env` file in the root directory with the following variables:
+### List Invoices (auto role filtering)
+- Method: GET
+- Path: `/api/v1/invoices/`
+- Query params: `status`, `customer_id`, `payment_type`, `created_by`, `start_date`, `end_date`, `skip`, `limit`
+- Notes: Warehouse sees `warehouse_pending`, `approved`, `shipped`. Accountant sees all except `draft`.
 
-```
-# Database settings
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost/rancetxe
+### Get Invoice by ID
+- Method: GET
+- Path: `/api/v1/invoices/{invoice_id}`
+- Notes: Returns `items.product`, `customer(+bank_accounts)`, `created_by_user` eagerly loaded.
 
-# Security
-SECRET_KEY=your-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+## Frontend Implementation Notes
+- After each action, re-fetch invoice details via GET `/api/v1/invoices/{id}` to refresh status and relations.
+- Show action buttons based on both role and current `status`:
+  - `warehouse_pending`: Warehouse can Reserve
+  - `accountant_pending`: Accountant can Approve
+  - `approved`: Warehouse can Ship (show form for tracking info)
+  - `shipped`: Warehouse can Deliver (optional)
+  - `cancel`: Admin/Accountant may Cancel (where allowed)
+- Handle 400/403 responses to provide proper UI feedback on invalid transitions or permissions.
 
-# API settings
-API_V1_STR=/api/v1
-CORS_ORIGINS=["http://localhost:3000"]
+## Error Handling
+- `400 Bad Request`: invalid state transitions or insufficient stock
+- `403 Forbidden`: user lacks role permissions
+- `404 Not Found`: invoice not found
 
-# Project settings
-PROJECT_NAME=Rancetxe Fabric Store Management System
+## Data Loading
+- Responses have relationships eagerly loaded to avoid lazy-loading issues in async contexts.
 
-# Upload settings
-UPLOADS_DIR=./uploads
-MAX_UPLOAD_SIZE=5242880  # 5MB
-ALLOWED_EXTENSIONS=["jpg", "jpeg", "png", "pdf"]
+## Versioning & Base URL
+- Base path: `/api/v1`
 
-# Initial users
-FIRST_SUPERUSER_EMAIL=admin@example.com
-FIRST_SUPERUSER_PASSWORD=admin
-FIRST_SUPERUSER_FIRST_NAME=Admin
-FIRST_SUPERUSER_LAST_NAME=User
-
-FIRST_ACCOUNTANT_EMAIL=accountant@example.com
-FIRST_ACCOUNTANT_PASSWORD=accountant
-FIRST_ACCOUNTANT_FIRST_NAME=Accountant
-FIRST_ACCOUNTANT_LAST_NAME=User
-
-FIRST_WAREHOUSE_EMAIL=warehouse@example.com
-FIRST_WAREHOUSE_PASSWORD=warehouse
-FIRST_WAREHOUSE_FIRST_NAME=Warehouse
-FIRST_WAREHOUSE_LAST_NAME=User
-```
-
-5. Create the database
-
-```bash
-# Connect to PostgreSQL
-psql -U postgres
-
-# Create the database
-CREATE DATABASE rancetxe;
-
-# Exit PostgreSQL
-\q
-```
-
-6. Run database migrations
-
-```bash
-# Generate initial migration
-python create_migration.py
-
-# Apply migrations
-python apply_migration.py
-```
-
-7. Start the application
-
-```bash
-python main.py
-```
-
-The API will be available at http://localhost:8000
-
-## API Documentation
-
-Once the application is running, you can access the API documentation at:
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## License
-
-This project is licensed under the MIT License.
+If anything changes or more sample payloads are needed, please ping the backend team.
