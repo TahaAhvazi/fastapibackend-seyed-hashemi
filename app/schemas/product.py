@@ -32,7 +32,7 @@ class ProductCreate(ProductBase):
     quantity_available: float = 0
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "code": "P006",
                 "name": "پارچه ساتن ابریشمی",  # Silk Satin Fabric
@@ -57,7 +57,7 @@ class ProductUpdate(ProductBase):
     pass
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "پارچه ساتن ابریشمی درجه یک",  # Premium Silk Satin Fabric
                 "quantity_available": 250,
@@ -73,8 +73,8 @@ class Product(ProductBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 6,
                 "code": "P006",
@@ -107,7 +107,7 @@ class ProductFilter(BaseModel):
     in_stock: Optional[bool] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "category": "ساتن",  # Satin
                 "min_price": 300000,

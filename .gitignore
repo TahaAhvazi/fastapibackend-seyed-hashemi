@@ -66,11 +66,11 @@ logs/
 .env.test.local
 .env.production.local
 
-# Alembic
-alembic/versions/*.py
-!alembic/versions/__init__.py
-# Database
-*.db
-*.sqlite
-*.sqlite3
-rancetxe.db
+# # Alembic
+# alembic/versions/*.py
+# !alembic/versions/__init__.py
+# # Database
+# # *.db
+# # *.sqlite
+# # *.sqlite3
+# # rancetxe.db

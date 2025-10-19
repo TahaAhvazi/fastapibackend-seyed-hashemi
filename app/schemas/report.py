@@ -15,7 +15,7 @@ class ReportParams(BaseModel):
     report_type: ReportType
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "report_type": "monthly"  # روزانه، هفتگی، ماهانه، یا سالانه
             }
@@ -30,7 +30,7 @@ class IncomeReport(BaseModel):
     period: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total_revenue": 5750000,
                 "total_cost": 3500000,
@@ -50,7 +50,7 @@ class ProductSalesReport(BaseModel):
     profit: float
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "product_id": 1,
                 "product_code": "P001",
@@ -70,7 +70,7 @@ class CustomerSalesReport(BaseModel):
     last_purchase_date: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "customer_id": 1,
                 "customer_name": "علی محمدی",  # Ali Mohammadi
@@ -92,7 +92,7 @@ class DashboardSummary(BaseModel):
     recent_invoices: List[Dict[str, Any]]
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total_revenue_current_month": 5750000,
                 "total_revenue_previous_month": 4500000,

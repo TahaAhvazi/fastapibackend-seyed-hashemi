@@ -33,7 +33,7 @@ class CheckCreate(CheckBase):
     status: CheckStatus = CheckStatus.IN_PROGRESS
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "check_number": "12345678",
                 "customer_id": 1,
@@ -51,7 +51,7 @@ class CheckUpdate(CheckBase):
     pass
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "cleared",
                 "attachments": ["uploads/checks/check_12345678.jpg", "uploads/checks/check_12345678_cleared.jpg"]
@@ -69,8 +69,8 @@ class Check(CheckBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "check_number": "12345678",
@@ -106,7 +106,7 @@ class CheckFilter(BaseModel):
     end_due_date: Optional[str] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "in_progress",
                 "start_due_date": "1401-06-01",

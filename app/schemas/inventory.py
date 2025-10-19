@@ -23,7 +23,7 @@ class InventoryTransactionCreate(InventoryTransactionBase):
     pass
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "product_id": 1,
                 "change_quantity": -5,  # Negative for reduction
@@ -40,8 +40,8 @@ class InventoryTransaction(InventoryTransactionBase):
     created_at: str
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "product_id": 1,
@@ -63,7 +63,7 @@ class ProductQuantity(BaseModel):
     available_quantity: float
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "product_id": 1,
                 "product_name": "پارچه مخمل سلطنتی",  # Royal Velvet Fabric
@@ -78,7 +78,7 @@ class ReserveStock(BaseModel):
     invoice_id: int
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "invoice_id": 1
             }

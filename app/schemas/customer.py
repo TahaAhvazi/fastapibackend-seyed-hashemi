@@ -15,7 +15,7 @@ class BankAccountCreate(BankAccountBase):
     account_number: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "bank_name": "بانک ملی",  # Bank Melli
                 "account_number": "0123456789",
@@ -33,7 +33,7 @@ class BankAccount(BankAccountBase):
     customer_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Customer schemas
@@ -53,7 +53,7 @@ class CustomerCreate(CustomerBase):
     bank_accounts: Optional[List[BankAccountCreate]] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "first_name": "رضا",  # Reza
                 "last_name": "کریمی",  # Karimi
@@ -76,7 +76,7 @@ class CustomerUpdate(CustomerBase):
     pass
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "address": "تهران، خیابان ولیعصر، کوچه گلستان، پلاک ۱۵",  # Tehran, Valiasr St, Golestan Alley, No. 15
                 "phone": "09129876543"
@@ -92,8 +92,8 @@ class Customer(CustomerBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "first_name": "رضا",  # Reza
@@ -127,7 +127,7 @@ class CustomerDetail(Customer):
     checks_in_progress_count: int
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "first_name": "رضا",  # Reza
@@ -167,7 +167,7 @@ class CustomerFilter(BaseModel):
     has_checks_in_progress: Optional[bool] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "province": "تهران",  # Tehran
                 "min_balance": 1000000,

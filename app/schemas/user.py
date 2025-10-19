@@ -28,7 +28,7 @@ class UserCreate(UserBase):
     role: UserRole
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "user@example.com",
                 "password": "strongpassword123",
@@ -44,7 +44,7 @@ class UserUpdate(UserBase):
     password: Optional[str] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "first_name": "علی",  # Ali
                 "last_name": "محمدی",  # Mohammadi
@@ -60,8 +60,8 @@ class User(UserBase):
     id: int
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "email": "user@example.com",
@@ -79,7 +79,7 @@ class Token(BaseModel):
     token_type: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "token_type": "bearer"
@@ -96,7 +96,7 @@ class Login(BaseModel):
     password: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "user@example.com",
                 "password": "strongpassword123"

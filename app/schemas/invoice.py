@@ -36,7 +36,7 @@ class InvoiceItemCreate(InvoiceItemBase):
     pass
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "product_id": 1,
                 "quantity": 5,
@@ -53,8 +53,8 @@ class InvoiceItem(InvoiceItemBase):
     product: Optional[Product] = None  # Complete product information
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "invoice_id": 1,
@@ -100,7 +100,7 @@ class InvoiceCreate(InvoiceBase):
     items: List[InvoiceItemCreate]
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "customer_id": 1,
                 "payment_type": "cash",
@@ -126,7 +126,7 @@ class InvoiceUpdate(InvoiceBase):
     status: Optional[InvoiceStatus] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "approved",
                 "payment_type": "mixed",
@@ -145,7 +145,7 @@ class InvoiceTrackingUpdate(BaseModel):
     number_of_packages: int
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "carrier_name": "پست پیشتاز",  # Express Post
                 "tracking_code": "EXP12345678",
@@ -169,8 +169,8 @@ class Invoice(InvoiceBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "invoice_number": "INV-1401-004",
@@ -236,7 +236,7 @@ class InvoiceFilter(BaseModel):
     created_by: Optional[int] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "warehouse_pending",
                 "start_date": "2023-01-01",
