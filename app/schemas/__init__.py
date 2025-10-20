@@ -25,6 +25,8 @@ from app.schemas.invoice import (
     InvoiceTrackingUpdate,
     InvoiceReserveUpdate,
     InvoiceItemReserveEdit,
+    RollPieceDetail,
+    DetailedRollInfo,
 )
 from app.schemas.check import CheckCreate, CheckUpdate, Check, CheckStatus
 from app.schemas.inventory import InventoryTransactionCreate, InventoryTransaction, TransactionReason, ProductQuantity, ReserveStock

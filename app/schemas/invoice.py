@@ -24,6 +24,37 @@ class PaymentType(str, Enum):
     MIXED = "mixed"  # ترکیبی
 
 
+# Detailed roll pieces schema
+class RollPieceDetail(BaseModel):
+    piece_number: int  # شماره قطعه در طاقه (1, 2, 3, ...)
+    measurement: float  # متراژ این قطعه
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "piece_number": 1,
+                "measurement": 2.5
+            }
+        }
+
+
+class DetailedRollInfo(BaseModel):
+    roll_number: int  # شماره طاقه (1, 2, 3, ...)
+    pieces: List[RollPieceDetail]  # لیست قطعات این طاقه
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "roll_number": 1,
+                "pieces": [
+                    {"piece_number": 1, "measurement": 2.5},
+                    {"piece_number": 2, "measurement": 3.0},
+                    {"piece_number": 3, "measurement": 2.8}
+                ]
+            }
+        }
+
+
 # Invoice Item schemas
 class InvoiceItemBase(BaseModel):
     product_id: int
@@ -34,6 +65,9 @@ class InvoiceItemBase(BaseModel):
     # Optional roll-based inputs (request-time aids)
     rolls_count: Optional[float] = None
     pieces_per_roll: Optional[float] = None
+    
+    # Detailed roll information for precise measurements
+    detailed_rolls: Optional[List[DetailedRollInfo]] = None
 
 
 class InvoiceItemCreate(InvoiceItemBase):
@@ -257,6 +291,7 @@ class InvoiceItemReserveEdit(BaseModel):
     quantity: Optional[float] = None
     unit: Optional[str] = None
     price: Optional[float] = None
+    detailed_rolls: Optional[List[DetailedRollInfo]] = None
 
     class Config:
         json_schema_extra = {
@@ -264,7 +299,16 @@ class InvoiceItemReserveEdit(BaseModel):
                 "id": 10,
                 "quantity": 4.5,
                 "unit": "متر",
-                "price": 360000
+                "price": 360000,
+                "detailed_rolls": [
+                    {
+                        "roll_number": 1,
+                        "pieces": [
+                            {"piece_number": 1, "measurement": 2.5},
+                            {"piece_number": 2, "measurement": 3.0}
+                        ]
+                    }
+                ]
             }
         }
 

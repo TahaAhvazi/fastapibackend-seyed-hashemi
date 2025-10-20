@@ -107,7 +107,18 @@ async def create_invoice(
 
         # Determine effective quantity based on rolls if provided
         effective_quantity = item.quantity
-        if getattr(item, "rolls_count", None) is not None:
+        
+        # Check if detailed rolls are provided (highest priority)
+        if getattr(item, "detailed_rolls", None) is not None and item.detailed_rolls:
+            # Calculate total quantity from detailed measurements
+            total_measurement = 0.0
+            for roll in item.detailed_rolls:
+                for piece in roll.pieces:
+                    total_measurement += piece.measurement
+            effective_quantity = total_measurement
+            
+        elif getattr(item, "rolls_count", None) is not None:
+            # Use simple roll calculation
             ppr = item.pieces_per_roll if getattr(item, "pieces_per_roll", None) is not None else product.pieces_per_roll
             if ppr is None:
                 raise HTTPException(
@@ -316,13 +327,27 @@ async def reserve_invoice_stock(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"آیتم فاکتور با شناسه {edit.id} یافت نشد",
                 )
-            if edit.quantity is not None:
+            # Handle detailed_rolls first (highest priority)
+            if edit.detailed_rolls is not None and edit.detailed_rolls:
+                # Calculate total quantity from detailed measurements
+                total_measurement = 0.0
+                for roll in edit.detailed_rolls:
+                    for piece in roll.pieces:
+                        if piece.measurement <= 0:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"متراژ قطعه {piece.piece_number} در طاقه {roll.roll_number} باید بزرگ‌تر از ۰ باشد",
+                            )
+                        total_measurement += piece.measurement
+                inv_item.quantity = total_measurement
+            elif edit.quantity is not None:
                 if edit.quantity <= 0:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"تعداد برای آیتم {edit.id} باید بزرگ‌تر از ۰ باشد",
                     )
                 inv_item.quantity = edit.quantity
+            
             if edit.unit is not None:
                 inv_item.unit = edit.unit
             if edit.price is not None:
