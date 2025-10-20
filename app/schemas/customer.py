@@ -87,6 +87,11 @@ class CustomerUpdate(CustomerBase):
 class Customer(CustomerBase):
     id: int
     full_name: str
+    current_balance: float
+    balance_notes: Optional[str] = None
+    is_creditor: bool
+    is_debtor: bool
+    balance_status: str
     bank_accounts: List[BankAccount] = []
     created_at: datetime
     updated_at: datetime
@@ -172,5 +177,52 @@ class CustomerFilter(BaseModel):
                 "province": "تهران",  # Tehran
                 "min_balance": 1000000,
                 "has_checks_in_progress": True
+            }
+        }
+
+
+# Balance management schemas
+class CustomerBalanceUpdate(BaseModel):
+    balance_adjustment: float  # Positive to increase balance, negative to decrease
+    notes: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "balance_adjustment": 500000,  # Add 500,000 to balance
+                "notes": "پیش‌پرداخت از مشتری"
+            }
+        }
+
+
+class CustomerBalanceSet(BaseModel):
+    new_balance: float
+    notes: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "new_balance": 2000000,  # Set balance to 2,000,000
+                "notes": "تصحیح مانده حساب"
+            }
+        }
+
+
+class CustomerBalanceInfo(BaseModel):
+    current_balance: float
+    is_creditor: bool
+    is_debtor: bool
+    balance_status: str
+    balance_notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "current_balance": 1500000,
+                "is_creditor": True,
+                "is_debtor": False,
+                "balance_status": "بستانکار",
+                "balance_notes": "پیش‌پرداخت برای سفارش آینده"
             }
         }

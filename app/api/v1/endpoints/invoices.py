@@ -94,7 +94,8 @@ async def create_invoice(
             detail="مشتری یافت نشد",  # Customer not found
         )
     
-    # Check if products exist and have enough stock
+    # Check if products exist and have enough stock; compute quantity from rolls if provided
+    computed_quantities: List[float] = []
     for item in invoice_in.items:
         product_result = await db.execute(select(models.Product).where(models.Product.id == item.product_id))
         product = product_result.scalars().first()
@@ -103,12 +104,57 @@ async def create_invoice(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"محصول با شناسه {item.product_id} یافت نشد",  # Product with ID {item.product_id} not found
             )
-        if product.quantity_available < item.quantity:
+
+        # Determine effective quantity based on rolls if provided
+        effective_quantity = item.quantity
+        if getattr(item, "rolls_count", None) is not None:
+            ppr = item.pieces_per_roll if getattr(item, "pieces_per_roll", None) is not None else product.pieces_per_roll
+            if ppr is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"برای محاسبه تعداد بر اساس طاقه، مقدار pieces_per_roll برای محصول {product.name} مشخص نیست",
+                )
+            effective_quantity = float(item.rolls_count) * float(ppr)
+
+        if effective_quantity <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"موجودی محصول {product.name} کافی نیست",  # Not enough stock for product {product.name}
+                detail=f"تعداد برای محصول {product.name} باید بزرگ‌تر از ۰ باشد",
             )
+
+        if product.quantity_available < effective_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"موجودی محصول {product.name} کافی نیست",
+            )
+
+        computed_quantities.append(effective_quantity)
     
+    # If payment is CHECK or MIXED, validate provided check_id (if any) belongs to this customer and is not already linked
+    if invoice_in.payment_type in [schemas.PaymentType.CHECK, schemas.PaymentType.MIXED]:
+        if not invoice_in.check_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="برای پرداخت چکی یا ترکیبی، وارد کردن شناسه چک الزامی است",
+            )
+        check_result = await db.execute(select(models.Check).where(models.Check.id == invoice_in.check_id))
+        check_obj = check_result.scalars().first()
+        if not check_obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"چکی با شناسه {invoice_in.check_id} یافت نشد",
+            )
+        if check_obj.customer_id != invoice_in.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="شناسه چک متعلق به مشتری این فاکتور نیست",
+            )
+        if check_obj.related_invoice_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"این چک قبلاً به فاکتور {check_obj.related_invoice_id} متصل شده است",
+            )
+
     # Generate invoice number
     current_year = datetime.now().year
     persian_year = current_year - 621  # Approximate conversion to Persian year
@@ -128,8 +174,8 @@ async def create_invoice(
     
     invoice_number = f"INV-{persian_year}-{new_number:03d}"
     
-    # Calculate subtotal and total
-    subtotal = sum(item.quantity * item.price for item in invoice_in.items)
+    # Calculate subtotal and total using effective quantities
+    subtotal = sum(q * itm.price for q, itm in zip(computed_quantities, invoice_in.items))
     total = subtotal  # No tax or discount for now
     
     # Create invoice
@@ -150,12 +196,12 @@ async def create_invoice(
     db.add(invoice)
     await db.flush()
     
-    # Create invoice items
-    for item_data in invoice_in.items:
+    # Create invoice items using effective quantities
+    for idx, item_data in enumerate(invoice_in.items):
         item = models.InvoiceItem(
             invoice_id=invoice.id,
             product_id=item_data.product_id,
-            quantity=item_data.quantity,
+            quantity=computed_quantities[idx] if idx < len(computed_quantities) else item_data.quantity,
             unit=item_data.unit,
             price=item_data.price,
         )
@@ -163,6 +209,15 @@ async def create_invoice(
     
     await db.commit()
     await db.refresh(invoice)
+
+    # If a check is provided and valid, link it to the created invoice
+    if invoice_in.payment_type in [schemas.PaymentType.CHECK, schemas.PaymentType.MIXED] and invoice_in.check_id:
+        check_result = await db.execute(select(models.Check).where(models.Check.id == invoice_in.check_id))
+        check_obj = check_result.scalars().first()
+        if check_obj:
+            check_obj.related_invoice_id = invoice.id
+            db.add(check_obj)
+            await db.commit()
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
@@ -219,10 +274,13 @@ async def reserve_invoice_stock(
     *,
     db: AsyncSession = Depends(get_db),
     invoice_id: int,
+    reserve_update: Optional[schemas.InvoiceReserveUpdate] = None,
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
     """
     Reserve stock for an invoice and mark it as accountant_pending (warehouse only)
+
+    If body provided, warehouse user can edit invoice items' quantity/unit/price before reservation.
     """
     # Get invoice with items
     query = select(models.Invoice).options(
@@ -247,7 +305,42 @@ async def reserve_invoice_stock(
             detail="فاکتور در وضعیت مناسب برای رزرو موجودی نیست",  # Invoice is not in the correct status for stock reservation
         )
     
-    # Check stock availability and reserve
+    # Optional: apply edits before reservation
+    if reserve_update and reserve_update.items:
+        # Map by id for fast lookup
+        invoice_items_by_id = {i.id: i for i in invoice.items}
+        for edit in reserve_update.items:
+            inv_item = invoice_items_by_id.get(edit.id)
+            if not inv_item:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"آیتم فاکتور با شناسه {edit.id} یافت نشد",
+                )
+            if edit.quantity is not None:
+                if edit.quantity <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"تعداد برای آیتم {edit.id} باید بزرگ‌تر از ۰ باشد",
+                    )
+                inv_item.quantity = edit.quantity
+            if edit.unit is not None:
+                inv_item.unit = edit.unit
+            if edit.price is not None:
+                if edit.price < 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"قیمت برای آیتم {edit.id} نمی‌تواند منفی باشد",
+                    )
+                inv_item.price = edit.price
+            db.add(inv_item)
+
+        # Recalculate subtotal/total after edits
+        new_subtotal = sum(i.quantity * i.price for i in invoice.items)
+        invoice.subtotal = new_subtotal
+        invoice.total = new_subtotal
+        db.add(invoice)
+
+    # Check stock availability and reserve using possibly-updated items
     for item in invoice.items:
         if item.product.quantity_available < item.quantity:
             raise HTTPException(

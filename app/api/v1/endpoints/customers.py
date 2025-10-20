@@ -299,3 +299,116 @@ async def delete_bank_account(
     await db.delete(bank_account)
     await db.commit()
     return bank_account
+
+
+@router.get("/{customer_id}/balance", response_model=schemas.CustomerBalanceInfo)
+async def get_customer_balance(
+    customer_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
+) -> Any:
+    """
+    Get customer balance information (admin or accountant only)
+    """
+    result = await db.execute(select(models.Customer).where(models.Customer.id == customer_id))
+    customer = result.scalars().first()
+    
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="مشتری یافت نشد",  # Customer not found
+        )
+    
+    return schemas.CustomerBalanceInfo(
+        current_balance=customer.current_balance,
+        is_creditor=customer.is_creditor,
+        is_debtor=customer.is_debtor,
+        balance_status=customer.balance_status,
+        balance_notes=customer.balance_notes
+    )
+
+
+@router.post("/{customer_id}/balance/adjust", response_model=schemas.CustomerBalanceInfo)
+async def adjust_customer_balance(
+    *,
+    customer_id: int,
+    balance_update: schemas.CustomerBalanceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
+) -> Any:
+    """
+    Adjust customer balance by adding/subtracting amount (admin or accountant only)
+    """
+    result = await db.execute(select(models.Customer).where(models.Customer.id == customer_id))
+    customer = result.scalars().first()
+    
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="مشتری یافت نشد",  # Customer not found
+        )
+    
+    # Update balance
+    customer.current_balance += balance_update.balance_adjustment
+    
+    # Update notes if provided
+    if balance_update.notes:
+        if customer.balance_notes:
+            customer.balance_notes += f"\n{balance_update.notes}"
+        else:
+            customer.balance_notes = balance_update.notes
+    
+    db.add(customer)
+    await db.commit()
+    await db.refresh(customer)
+    
+    return schemas.CustomerBalanceInfo(
+        current_balance=customer.current_balance,
+        is_creditor=customer.is_creditor,
+        is_debtor=customer.is_debtor,
+        balance_status=customer.balance_status,
+        balance_notes=customer.balance_notes
+    )
+
+
+@router.post("/{customer_id}/balance/set", response_model=schemas.CustomerBalanceInfo)
+async def set_customer_balance(
+    *,
+    customer_id: int,
+    balance_set: schemas.CustomerBalanceSet,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
+) -> Any:
+    """
+    Set customer balance to specific amount (admin or accountant only)
+    """
+    result = await db.execute(select(models.Customer).where(models.Customer.id == customer_id))
+    customer = result.scalars().first()
+    
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="مشتری یافت نشد",  # Customer not found
+        )
+    
+    # Set balance
+    customer.current_balance = balance_set.new_balance
+    
+    # Update notes if provided
+    if balance_set.notes:
+        if customer.balance_notes:
+            customer.balance_notes += f"\n{balance_set.notes}"
+        else:
+            customer.balance_notes = balance_set.notes
+    
+    db.add(customer)
+    await db.commit()
+    await db.refresh(customer)
+    
+    return schemas.CustomerBalanceInfo(
+        current_balance=customer.current_balance,
+        is_creditor=customer.is_creditor,
+        is_debtor=customer.is_debtor,
+        balance_status=customer.balance_status,
+        balance_notes=customer.balance_notes
+    )

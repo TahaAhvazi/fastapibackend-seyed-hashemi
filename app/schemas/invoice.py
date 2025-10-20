@@ -30,6 +30,10 @@ class InvoiceItemBase(BaseModel):
     quantity: float
     unit: str
     price: float
+    
+    # Optional roll-based inputs (request-time aids)
+    rolls_count: Optional[float] = None
+    pieces_per_roll: Optional[float] = None
 
 
 class InvoiceItemCreate(InvoiceItemBase):
@@ -98,6 +102,7 @@ class InvoiceCreate(InvoiceBase):
     customer_id: int
     payment_type: PaymentType
     items: List[InvoiceItemCreate]
+    check_id: Optional[int] = None
 
     class Config:
         json_schema_extra = {
@@ -117,7 +122,8 @@ class InvoiceCreate(InvoiceBase):
                         "unit": "متر",  # Meter
                         "price": 280000
                     }
-                ]
+                ],
+                "check_id": 12
             }
         }
 
@@ -241,5 +247,37 @@ class InvoiceFilter(BaseModel):
                 "status": "warehouse_pending",
                 "start_date": "2023-01-01",
                 "end_date": "2023-01-31"
+            }
+        }
+
+
+# Reserve with edit schemas
+class InvoiceItemReserveEdit(BaseModel):
+    id: int  # invoice item id
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    price: Optional[float] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 10,
+                "quantity": 4.5,
+                "unit": "متر",
+                "price": 360000
+            }
+        }
+
+
+class InvoiceReserveUpdate(BaseModel):
+    items: List[InvoiceItemReserveEdit] = []
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "items": [
+                    {"id": 10, "quantity": 4.5, "price": 360000},
+                    {"id": 11, "quantity": 2}
+                ]
             }
         }
