@@ -36,6 +36,11 @@ class InvoiceItem(Base):
     unit = Column(String, nullable=False)  # متر / یارد / طاقه
     price = Column(Float, nullable=False)  # Price per unit
     
+    # Roll-based information for detailed tracking
+    rolls_count = Column(Float, nullable=True)  # تعداد طاقه‌ها
+    pieces_per_roll = Column(Float, nullable=True)  # تعداد قطعات در هر طاقه
+    detailed_rolls = Column(JSON, nullable=True)  # اطلاعات تفصیلی طاقه‌ها
+    
     # Relationships
     invoice = relationship("Invoice", back_populates="items")
     product = relationship("Product")

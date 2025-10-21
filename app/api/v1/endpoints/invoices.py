@@ -215,6 +215,10 @@ async def create_invoice(
             quantity=computed_quantities[idx] if idx < len(computed_quantities) else item_data.quantity,
             unit=item_data.unit,
             price=item_data.price,
+            # Store roll-based information for detailed tracking
+            rolls_count=getattr(item_data, "rolls_count", None),
+            pieces_per_roll=getattr(item_data, "pieces_per_roll", None),
+            detailed_rolls=[roll.model_dump() for roll in item_data.detailed_rolls] if getattr(item_data, "detailed_rolls", None) else None,
         )
         db.add(item)
     
@@ -340,6 +344,11 @@ async def reserve_invoice_stock(
                             )
                         total_measurement += piece.measurement
                 inv_item.quantity = total_measurement
+                # Store detailed rolls information
+                inv_item.detailed_rolls = [roll.model_dump() for roll in edit.detailed_rolls]
+                # Clear simple roll info when using detailed rolls
+                inv_item.rolls_count = None
+                inv_item.pieces_per_roll = None
             elif edit.quantity is not None:
                 if edit.quantity <= 0:
                     raise HTTPException(
@@ -347,6 +356,8 @@ async def reserve_invoice_stock(
                         detail=f"تعداد برای آیتم {edit.id} باید بزرگ‌تر از ۰ باشد",
                     )
                 inv_item.quantity = edit.quantity
+                # Clear detailed rolls when using simple quantity
+                inv_item.detailed_rolls = None
             
             if edit.unit is not None:
                 inv_item.unit = edit.unit
