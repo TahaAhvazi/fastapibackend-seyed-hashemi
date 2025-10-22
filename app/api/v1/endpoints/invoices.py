@@ -332,23 +332,24 @@ async def reserve_invoice_stock(
                     detail=f"آیتم فاکتور با شناسه {edit.id} یافت نشد",
                 )
             # Handle detailed_rolls first (highest priority)
-            if edit.detailed_rolls is not None and edit.detailed_rolls:
-                # Calculate total quantity from detailed measurements
-                total_measurement = 0.0
-                for roll in edit.detailed_rolls:
-                    for piece in roll.pieces:
-                        if piece.measurement <= 0:
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"متراژ قطعه {piece.piece_number} در طاقه {roll.roll_number} باید بزرگ‌تر از ۰ باشد",
-                            )
-                        total_measurement += piece.measurement
-                inv_item.quantity = total_measurement
-                # Store detailed rolls information
-                inv_item.detailed_rolls = [roll.model_dump() for roll in edit.detailed_rolls]
-                # Clear simple roll info when using detailed rolls
-                inv_item.rolls_count = None
-                inv_item.pieces_per_roll = None
+            if edit.detailed_rolls is not None:
+                if edit.detailed_rolls:  # Non-empty list
+                    # Calculate total quantity from detailed measurements
+                    total_measurement = 0.0
+                    for roll in edit.detailed_rolls:
+                        for piece in roll.pieces:
+                            if piece.measurement <= 0:
+                                raise HTTPException(
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail=f"متراژ قطعه {piece.piece_number} در طاقه {roll.roll_number} باید بزرگ‌تر از ۰ باشد",
+                                )
+                            total_measurement += piece.measurement
+                    inv_item.quantity = total_measurement
+                    # Store detailed rolls information
+                    inv_item.detailed_rolls = [roll.model_dump() for roll in edit.detailed_rolls]
+                    # Clear simple roll info when using detailed rolls
+                    inv_item.rolls_count = None
+                    inv_item.pieces_per_roll = None
             elif edit.quantity is not None:
                 if edit.quantity <= 0:
                     raise HTTPException(
@@ -356,8 +357,7 @@ async def reserve_invoice_stock(
                         detail=f"تعداد برای آیتم {edit.id} باید بزرگ‌تر از ۰ باشد",
                     )
                 inv_item.quantity = edit.quantity
-                # Clear detailed rolls when using simple quantity
-                inv_item.detailed_rolls = None
+                # Do NOT clear detailed_rolls unless explicitly provided as empty
             
             if edit.unit is not None:
                 inv_item.unit = edit.unit
