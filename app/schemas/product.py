@@ -37,7 +37,6 @@ class ProductCreate(ProductBase):
                 "code": "P006",
                 "name": "پارچه ساتن ابریشمی",  # Silk Satin Fabric
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
-                "image_url": "/uploads/satin.jpg",
                 "year_production": 1401,
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
