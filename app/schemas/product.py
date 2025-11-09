@@ -23,13 +23,13 @@ class ProductBase(BaseModel):
 
 # Properties to receive via API on creation
 class ProductCreate(ProductBase):
-    code: str
-    name: str
-    category: str
-    unit: str
-    purchase_price: float
-    sale_price: float
-    quantity_available: float = 0
+    code: str = Field(..., min_length=1, description="کد محصول")
+    name: str = Field(..., min_length=1, description="نام محصول")
+    category: str = Field(..., min_length=1, description="دسته‌بندی محصول (مثال: ساتن، کتان، ابریشم)")
+    unit: str = Field(..., min_length=1, description="واحد اندازه‌گیری (مثال: متر، یارد، طاقه)")
+    purchase_price: float = Field(..., gt=0, description="قیمت خرید")
+    sale_price: float = Field(..., gt=0, description="قیمت فروش")
+    quantity_available: float = Field(default=0, ge=0, description="موجودی موجود")
 
     class Config:
         json_schema_extra = {

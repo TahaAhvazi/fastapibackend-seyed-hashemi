@@ -67,7 +67,24 @@ async def create_product(
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
     """
+    ایجاد محصول جدید (فقط برای admin یا warehouse)
     Create new product (admin or warehouse only)
+    
+    فیلدهای اجباری:
+    - code: کد محصول (string)
+    - name: نام محصول (string)
+    - category: دسته‌بندی محصول (string) - مثال: "ساتن"، "کتان"، "ابریشم"
+    - unit: واحد اندازه‌گیری (string) - مثال: "متر"، "یارد"، "طاقه"
+    - purchase_price: قیمت خرید (float)
+    - sale_price: قیمت فروش (float)
+    
+    Required fields:
+    - code: Product code (string)
+    - name: Product name (string)
+    - category: Product category (string) - example: "ساتن", "کتان", "ابریشم"
+    - unit: Measurement unit (string) - example: "متر", "یارد", "طاقه"
+    - purchase_price: Purchase price (float)
+    - sale_price: Sale price (float)
     """
     # Check if product with this code exists
     result = await db.execute(select(models.Product).where(models.Product.code == product_in.code))
@@ -79,6 +96,7 @@ async def create_product(
         )
     
     # Create new product
+    # category is included in product_data and will be saved as string
     # Ignore image_url if provided - images should be uploaded separately via /products/{id}/image endpoint
     product_data = product_in.model_dump(exclude={"image_url"})
     product = models.Product(**product_data)
@@ -291,4 +309,3 @@ async def delete_product_image(
     await db.refresh(product)
     
     return product
-    ////test
