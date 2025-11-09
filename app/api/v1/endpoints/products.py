@@ -291,3 +291,4 @@ async def delete_product_image(
     await db.refresh(product)
     
     return product
+    ////test
