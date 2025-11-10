@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # Shared properties
@@ -8,27 +8,20 @@ class ProductBase(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    image_url: Optional[str] = None
-    year_production: Optional[int] = None
     category: Optional[str] = None
     unit: Optional[str] = None  # متر / یارد / طاقه
-    pieces_per_roll: Optional[int] = None
     quantity_available: Optional[float] = None
     colors: Optional[str] = None
-    part_number: Optional[str] = None
-    reorder_location: Optional[str] = None  # محل سفارش
-    purchase_price: Optional[float] = None
-    sale_price: Optional[float] = None
 
 
 # Properties to receive via API on creation
+# Note: This schema is not used directly in the endpoint anymore
+# The endpoint uses Form data for multipart/form-data uploads
 class ProductCreate(ProductBase):
     code: str = Field(..., min_length=1, description="کد محصول")
     name: str = Field(..., min_length=1, description="نام محصول")
     category: str = Field(..., min_length=1, description="دسته‌بندی محصول (مثال: ساتن، کتان، ابریشم)")
     unit: str = Field(..., min_length=1, description="واحد اندازه‌گیری (مثال: متر، یارد، طاقه)")
-    purchase_price: float = Field(..., gt=0, description="قیمت خرید")
-    sale_price: float = Field(..., gt=0, description="قیمت فروش")
     quantity_available: float = Field(default=0, ge=0, description="موجودی موجود")
 
     class Config:
@@ -37,16 +30,10 @@ class ProductCreate(ProductBase):
                 "code": "P006",
                 "name": "پارچه ساتن ابریشمی",  # Silk Satin Fabric
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
-                "year_production": 1401,
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
-                "pieces_per_roll": 50,
                 "quantity_available": 300,
-                "colors": "سفید، مشکی، آبی، قرمز",  # White, Black, Blue, Red
-                "part_number": "STN-006",
-                "reorder_location": "تهران، بازار",  # Tehran, Bazaar
-                "purchase_price": 350000,
-                "sale_price": 480000
+                "colors": "سفید، مشکی، آبی، قرمز"  # White, Black, Blue, Red
             }
         }
 
@@ -60,7 +47,7 @@ class ProductUpdate(ProductBase):
             "example": {
                 "name": "پارچه ساتن ابریشمی درجه یک",  # Premium Silk Satin Fabric
                 "quantity_available": 250,
-                "sale_price": 520000
+                "colors": "سفید، مشکی"
             }
         }
 
@@ -70,6 +57,48 @@ class Product(ProductBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    images: Optional[List[str]] = Field(default=None, description="لیست URL های عکس‌های محصول")
+
+    @model_validator(mode='before')
+    @classmethod
+    def extract_images(cls, data):
+        """Extract images from relationship if present"""
+        if isinstance(data, dict):
+            # If images is already a list of strings (URLs), keep it as is
+            if 'images' in data and isinstance(data['images'], list):
+                # Check if first item is a string (URL) - if so, it's already processed
+                if data['images'] and isinstance(data['images'][0], str):
+                    return data
+            
+            # If images relationship is loaded, extract image URLs
+            if 'images' in data and hasattr(data['images'], '__iter__'):
+                # Check if it's a list of ProductImage objects
+                images_list = []
+                for img in data['images']:
+                    if hasattr(img, 'image_url'):
+                        images_list.append(img.image_url)
+                    elif isinstance(img, dict) and 'image_url' in img:
+                        images_list.append(img['image_url'])
+                data['images'] = images_list if images_list else None
+        else:
+            # If data is a model instance, check if images is already loaded
+            # Use __dict__ to avoid triggering lazy loading
+            if hasattr(data, '__dict__'):
+                data_dict = {}
+                for key, value in data.__dict__.items():
+                    if not key.startswith('_'):
+                        data_dict[key] = value
+                
+                # Check if images relationship is already loaded in __dict__
+                if 'images' in data_dict:
+                    images_list = [img.image_url for img in data_dict['images']] if data_dict['images'] else []
+                    data_dict['images'] = images_list if images_list else None
+                else:
+                    # Images not loaded, set to None to avoid lazy loading
+                    data_dict['images'] = None
+                
+                return data_dict
+        return data
 
     class Config:
         from_attributes = True
@@ -79,17 +108,11 @@ class Product(ProductBase):
                 "code": "P006",
                 "name": "پارچه ساتن ابریشمی",  # Silk Satin Fabric
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
-                "image_url": "/uploads/satin.jpg",
-                "year_production": 1401,
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
-                "pieces_per_roll": 50,
                 "quantity_available": 300,
                 "colors": "سفید، مشکی، آبی، قرمز",  # White, Black, Blue, Red
-                "part_number": "STN-006",
-                "reorder_location": "تهران، بازار",  # Tehran, Bazaar
-                "purchase_price": 350000,
-                "sale_price": 480000,
+                "images": ["/uploads/products/P006_20231110_123456.jpg", "/uploads/products/P006_20231110_123457.jpg"],
                 "created_at": "2023-01-15T10:30:00",
                 "updated_at": "2023-01-15T10:30:00"
             }
@@ -101,16 +124,12 @@ class ProductFilter(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
     category: Optional[str] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
     in_stock: Optional[bool] = None
 
     class Config:
         json_schema_extra = {
             "example": {
                 "category": "ساتن",  # Satin
-                "min_price": 300000,
-                "max_price": 500000,
                 "in_stock": True
             }
         }

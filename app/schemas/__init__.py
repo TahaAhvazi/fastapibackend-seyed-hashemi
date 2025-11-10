@@ -12,7 +12,8 @@ from app.schemas.customer import (
     BankAccount,
     CustomerBalanceUpdate,
     CustomerBalanceSet,
-    CustomerBalanceInfo
+    CustomerBalanceInfo,
+    PaginatedCustomerResponse
 )
 from app.schemas.invoice import (
     InvoiceCreate,

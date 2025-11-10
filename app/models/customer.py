@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.sql.sqltypes import TIMESTAMP
@@ -8,15 +8,21 @@ from app.db.base_class import Base
 
 class Customer(Base):
     id = Column(Integer, primary_key=True, index=True)
+    person_code = Column(String, nullable=True, unique=True, index=True)  # کد شخص از Excel
+    person_type = Column(String, nullable=True)  # نوع شخصیت: آقای، خانم
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
+    company_name = Column(String, nullable=True)  # نام شرکت (اگر شرکت باشد)
     address = Column(Text, nullable=True)
-    phone = Column(String, nullable=False)
+    phone = Column(String, nullable=True)  # تلفن ثابت
+    mobile = Column(String, nullable=True)  # موبایل
     city = Column(String, nullable=True)
     province = Column(String, nullable=True)
     # Balance fields
     current_balance = Column(Float, default=0.0, nullable=False)  # Positive = creditor, Negative = debtor
     balance_notes = Column(Text, nullable=True)  # Notes about balance adjustments
+    # Excel columns - تمام ستون‌های Excel برای ذخیره جزئیات
+    excel_data = Column(JSON, nullable=True)  # JSON object containing all Excel columns with their values
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     

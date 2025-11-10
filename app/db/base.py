@@ -2,6 +2,7 @@
 from app.db.base_class import Base  # noqa
 from app.models.user import User  # noqa
 from app.models.product import Product  # noqa
+from app.models.product_image import ProductImage  # noqa
 from app.models.customer import Customer, BankAccount  # noqa
 from app.models.invoice import Invoice, InvoiceItem  # noqa
 from app.models.inventory import InventoryTransaction  # noqa

@@ -51,3 +51,6 @@ uvicorn==0.35.0
 # uvloop==0.21.0  # Not supported on Windows
 watchfiles==1.1.0
 websockets==15.0.1
+pandas==2.2.3
+openpyxl==3.1.5
+xlrd==2.0.1

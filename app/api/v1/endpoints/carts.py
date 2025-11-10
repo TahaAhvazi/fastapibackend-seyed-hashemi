@@ -84,7 +84,7 @@ async def read_carts(
     Retrieve cart orders (admin/accountant only)
     """
     query = select(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.product).selectinload(models.Product.images)
     )
 
     # Apply filters
@@ -97,7 +97,7 @@ async def read_carts(
 
     query = query.order_by(models.Cart.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    carts = result.scalars().all()
+    carts = result.scalars().unique().all()
     return carts
 
 
@@ -111,11 +111,11 @@ async def read_cart(
     Get a specific cart order by id (admin/accountant only)
     """
     query = select(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.product).selectinload(models.Product.images)
     ).where(models.Cart.id == cart_id)
 
     result = await db.execute(query)
-    cart = result.scalars().first()
+    cart = result.scalars().unique().first()
 
     if not cart:
         raise HTTPException(
@@ -154,10 +154,10 @@ async def update_cart_status(
 
     # Reload with relationships
     query = select(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.product).selectinload(models.Product.images)
     ).where(models.Cart.id == cart_id)
     result = await db.execute(query)
-    cart_with_items = result.scalars().first()
+    cart_with_items = result.scalars().unique().first()
 
     return cart_with_items
 

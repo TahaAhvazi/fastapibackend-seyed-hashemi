@@ -14,6 +14,15 @@ from app.api import deps
 from app.core.config import settings
 from app.db.session import get_db
 
+
+def serialize_product_with_images(product: models.Product) -> dict:
+    """Convert Product model to dict with images list"""
+    product_dict = {
+        **{k: v for k, v in product.__dict__.items() if not k.startswith('_')},
+        'images': [img.image_url for img in product.images] if hasattr(product, 'images') and product.images else []
+    }
+    return product_dict
+
 router = APIRouter()
 
 
@@ -34,7 +43,7 @@ async def read_invoices(
     Retrieve invoices with optional filtering
     """
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     )
@@ -119,11 +128,11 @@ async def create_invoice(
             
         elif getattr(item, "rolls_count", None) is not None:
             # Use simple roll calculation
-            ppr = item.pieces_per_roll if getattr(item, "pieces_per_roll", None) is not None else product.pieces_per_roll
+            ppr = getattr(item, "pieces_per_roll", None)
             if ppr is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"برای محاسبه تعداد بر اساس طاقه، مقدار pieces_per_roll برای محصول {product.name} مشخص نیست",
+                    detail=f"برای محاسبه تعداد بر اساس طاقه، مقدار pieces_per_roll باید در درخواست ارسال شود",
                 )
             effective_quantity = float(item.rolls_count) * float(ppr)
 
@@ -236,7 +245,7 @@ async def create_invoice(
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice.id)
@@ -256,7 +265,7 @@ async def read_invoice(
     Get a specific invoice by id
     """
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -299,7 +308,7 @@ async def reserve_invoice_stock(
     """
     # Get invoice with items
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -407,7 +416,7 @@ async def reserve_invoice_stock(
     
     # Re-fetch invoice with all relationships after commit
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -453,7 +462,7 @@ async def approve_invoice(
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -476,7 +485,7 @@ async def ship_invoice(
     """
     # Get invoice with items
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images)
     ).where(models.Invoice.id == invoice_id)
     
     result = await db.execute(query)
@@ -518,7 +527,7 @@ async def ship_invoice(
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -563,7 +572,7 @@ async def deliver_invoice(
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)
@@ -592,7 +601,7 @@ async def cancel_invoice(
     
     # Get invoice with items
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product)
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images)
     ).where(models.Invoice.id == invoice_id)
     
     result = await db.execute(query)
@@ -645,7 +654,7 @@ async def cancel_invoice(
     
     # Reload invoice with all relationships to avoid lazy loading issues
     query = select(models.Invoice).options(
-        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product),
+        selectinload(models.Invoice.items).selectinload(models.InvoiceItem.product).selectinload(models.Product.images),
         selectinload(models.Invoice.customer).selectinload(models.Customer.bank_accounts),
         selectinload(models.Invoice.created_by_user)
     ).where(models.Invoice.id == invoice_id)

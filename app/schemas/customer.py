@@ -1,6 +1,9 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Generic, TypeVar
 from datetime import datetime
 from pydantic import BaseModel, Field
+
+# Generic type for pagination
+T = TypeVar('T')
 
 
 # Bank Account schemas
@@ -38,10 +41,14 @@ class BankAccount(BankAccountBase):
 
 # Customer schemas
 class CustomerBase(BaseModel):
+    person_code: Optional[str] = None
+    person_type: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    company_name: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
 
@@ -49,21 +56,54 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     first_name: str
     last_name: str
-    phone: str
+    current_balance: Optional[float] = 0.0
+    balance_notes: Optional[str] = None
+    excel_data: Optional[Dict[str, Any]] = None
     bank_accounts: Optional[List[BankAccountCreate]] = None
 
     class Config:
         json_schema_extra = {
             "example": {
-                "first_name": "رضا",  # Reza
-                "last_name": "کریمی",  # Karimi
-                "address": "تهران، خیابان شریعتی، کوچه بهار، پلاک ۲۰",  # Tehran, Shariati St, Bahar Alley, No. 20
-                "phone": "09121234567",
-                "city": "تهران",  # Tehran
-                "province": "تهران",  # Tehran
+                "person_code": "916",
+                "person_type": None,
+                "first_name": "غلامرضا",
+                "last_name": "افخمی",
+                "company_name": None,
+                "address": "اردبیل-خیابان سی متری-پارچه دیبا",
+                "phone": None,
+                "mobile": "9123045426",
+                "city": None,
+                "province": None,
+                "current_balance": 677860000,
+                "balance_notes": None,
+                "excel_data": {
+                    "گروه شخص": "1",
+                    "کد شخص": "916",
+                    "نوع شخصیت": None,
+                    "پیشوند": "آقای",
+                    "نام / نام شرکت": "غلامرضا",
+                    "نام خانوادگی / مدیر عامل": "افخمی",
+                    "تاریخ تولد": None,
+                    "معرف": None,
+                    "تلفن 1": None,
+                    "موبایل": "9123045426",
+                    "نام شرکت": None,
+                    "نوع مودی": None,
+                    "کد شهر": "-1",
+                    "آدرس": "اردبیل-خیابان سی متری-پارچه دیبا",
+                    "توضیحات": "دفتر کل:239",
+                    "ارز": "1",
+                    "نرخ ارز": "1.0",
+                    "ماهیت اول دوره": "1.0",
+                    "مانده": "677860000.0",
+                    "اعتبار": "-1",
+                    "فاكس": None,
+                    "شماره اقتصادی": None,
+                    "شماره ثبت": None
+                },
                 "bank_accounts": [
                     {
-                        "bank_name": "بانک ملی",  # Bank Melli
+                        "bank_name": "بانک ملی",
                         "account_number": "0123456789",
                         "iban": "IR123456789012345678901234"
                     }
@@ -73,13 +113,50 @@ class CustomerCreate(CustomerBase):
 
 
 class CustomerUpdate(CustomerBase):
-    pass
+    current_balance: Optional[float] = None
+    balance_notes: Optional[str] = None
+    excel_data: Optional[Dict[str, Any]] = None
 
     class Config:
         json_schema_extra = {
             "example": {
-                "address": "تهران، خیابان ولیعصر، کوچه گلستان، پلاک ۱۵",  # Tehran, Valiasr St, Golestan Alley, No. 15
-                "phone": "09129876543"
+                "person_code": "916",
+                "person_type": None,
+                "first_name": "غلامرضا",
+                "last_name": "افخمی",
+                "company_name": None,
+                "address": "اردبیل-خیابان سی متری-پارچه دیبا",
+                "phone": None,
+                "mobile": "9123045426",
+                "city": None,
+                "province": None,
+                "current_balance": 677860000,
+                "balance_notes": "به‌روزرسانی مانده حساب",
+                "excel_data": {
+                    "گروه شخص": "1",
+                    "کد شخص": "916",
+                    "نوع شخصیت": None,
+                    "پیشوند": "آقای",
+                    "نام / نام شرکت": "غلامرضا",
+                    "نام خانوادگی / مدیر عامل": "افخمی",
+                    "تاریخ تولد": None,
+                    "معرف": None,
+                    "تلفن 1": None,
+                    "موبایل": "9123045426",
+                    "نام شرکت": None,
+                    "نوع مودی": None,
+                    "کد شهر": "-1",
+                    "آدرس": "اردبیل-خیابان سی متری-پارچه دیبا",
+                    "توضیحات": "دفتر کل:239",
+                    "ارز": "1",
+                    "نرخ ارز": "1.0",
+                    "ماهیت اول دوره": "1.0",
+                    "مانده": "677860000.0",
+                    "اعتبار": "-1",
+                    "فاكس": None,
+                    "شماره اقتصادی": None,
+                    "شماره ثبت": None
+                }
             }
         }
 
@@ -92,6 +169,7 @@ class Customer(CustomerBase):
     is_creditor: bool
     is_debtor: bool
     balance_status: str
+    excel_data: Optional[Dict[str, Any]] = None  # تمام ستون‌های Excel
     bank_accounts: List[BankAccount] = []
     created_at: datetime
     updated_at: datetime
@@ -224,5 +302,47 @@ class CustomerBalanceInfo(BaseModel):
                 "is_debtor": False,
                 "balance_status": "بستانکار",
                 "balance_notes": "پیش‌پرداخت برای سفارش آینده"
+            }
+        }
+
+
+# Pagination response
+class PaginatedCustomerResponse(BaseModel):
+    items: List[Customer]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "items": [
+                    {
+                        "id": 1,
+                        "first_name": "رضا",
+                        "last_name": "کریمی",
+                        "full_name": "رضا کریمی",
+                        "address": "تهران، خیابان شریعتی",
+                        "phone": "09121234567",
+                        "city": "تهران",
+                        "province": "تهران",
+                        "current_balance": 1500000,
+                        "is_creditor": True,
+                        "is_debtor": False,
+                        "balance_status": "بستانکار",
+                        "bank_accounts": [],
+                        "created_at": "2023-01-15T10:30:00",
+                        "updated_at": "2023-01-15T10:30:00"
+                    }
+                ],
+                "total": 150,
+                "page": 1,
+                "per_page": 20,
+                "total_pages": 8,
+                "has_next": True,
+                "has_prev": False
             }
         }

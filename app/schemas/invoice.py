@@ -106,17 +106,11 @@ class InvoiceItem(InvoiceItemBase):
                     "code": "P001",
                     "name": "پارچه کتان",  # Cotton Fabric
                     "description": "پارچه کتان با کیفیت عالی",  # High quality cotton fabric
-                    "image_url": "/uploads/cotton.jpg",
-                    "year_production": 1401,
                     "category": "کتان",  # Cotton
                     "unit": "متر",  # Meter
-                    "pieces_per_roll": 50,
                     "quantity_available": 200,
                     "colors": "سفید، آبی، قرمز",  # White, Blue, Red
-                    "part_number": "CTN-001",
-                    "reorder_location": "تهران، بازار",  # Tehran, Bazaar
-                    "purchase_price": 250000,
-                    "sale_price": 350000,
+                    "images": ["/uploads/products/P001_20231110_123456.jpg"],
                     "created_at": "2023-01-15T10:30:00",
                     "updated_at": "2023-01-15T10:30:00"
                 }
