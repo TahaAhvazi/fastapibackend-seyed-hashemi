@@ -83,6 +83,22 @@ async def read_customers(
     )
 
 
+@router.get("/count", response_model=dict)
+async def get_customers_count(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_accountant_user),
+) -> Any:
+    """
+    دریافت تعداد کل مشتری‌ها
+    Get total count of customers
+    """
+    count_query = select(func.count(models.Customer.id))
+    result = await db.execute(count_query)
+    total = result.scalar_one()
+    
+    return {"total": total}
+
+
 @router.get("/search", response_model=List[schemas.Customer])
 async def search_customers(
     db: AsyncSession = Depends(get_db),
