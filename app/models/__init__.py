@@ -10,3 +10,4 @@ from app.models.cart import Cart, CartItem
 from app.models.slider import Slider
 from app.models.article import Article
 from app.models.site_settings import SiteSettings
+from app.models.category import Category

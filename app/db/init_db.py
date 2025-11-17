@@ -85,7 +85,7 @@ async def _create_seed_data(db: AsyncSession) -> None:
             category="مخمل",  # Velvet
             unit="متر",  # Meter
             pieces_per_roll=50,
-            quantity_available=500,
+            is_available=True,
             colors="قرمز، آبی، سبز",  # Red, Blue, Green
             part_number="VLV-001",
             reorder_location="تهران، بازار",  # Tehran, Bazaar
@@ -101,7 +101,7 @@ async def _create_seed_data(db: AsyncSession) -> None:
             category="کتان",  # Linen
             unit="متر",  # Meter
             pieces_per_roll=100,
-            quantity_available=800,
+            is_available=True,
             colors="کرم، قهوه‌ای، طبیعی",  # Cream, Brown, Natural
             part_number="LNN-002",
             reorder_location="اصفهان، چهارباغ",  # Isfahan, Chahar Bagh
@@ -117,7 +117,7 @@ async def _create_seed_data(db: AsyncSession) -> None:
             category="ابریشم",  # Silk
             unit="متر",  # Meter
             pieces_per_roll=30,
-            quantity_available=150,
+            is_available=True,
             colors="طلایی، نقره‌ای، صورتی",  # Gold, Silver, Pink
             part_number="SLK-003",
             reorder_location="یزد، بازار سنتی",  # Yazd, Traditional Bazaar
@@ -133,7 +133,7 @@ async def _create_seed_data(db: AsyncSession) -> None:
             category="نخی",  # Cotton
             unit="متر",  # Meter
             pieces_per_roll=80,
-            quantity_available=600,
+            is_available=True,
             colors="سفید با گل‌های رنگی",  # White with colorful flowers
             part_number="CTN-004",
             reorder_location="مشهد، خیابان خسروی",  # Mashhad, Khosravi Street
@@ -149,7 +149,7 @@ async def _create_seed_data(db: AsyncSession) -> None:
             category="ترمه",  # Termeh
             unit="متر",  # Meter
             pieces_per_roll=20,
-            quantity_available=100,
+            is_available=True,
             colors="قرمز، سبز، آبی با نقوش سنتی",  # Red, Green, Blue with traditional patterns
             part_number="TRM-005",
             reorder_location="یزد، میدان امیرچخماق",  # Yazd, Amir Chakhmaq Square

@@ -10,8 +10,14 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     unit: Optional[str] = None  # متر / یارد / طاقه
-    quantity_available: Optional[float] = None
     colors: Optional[str] = None
+    is_available: Optional[bool] = None  # موجود/ناموجود
+    shrinkage: Optional[str] = None  # ابرفت
+    visible: Optional[bool] = None  # نمایش در سایت
+    width: Optional[str] = None  # عرض
+    usage: Optional[str] = None  # کاربرد
+    season: Optional[str] = None  # فصل
+    weave_type: Optional[str] = None  # نوع بافت
 
 
 # Properties to receive via API on creation
@@ -22,7 +28,6 @@ class ProductCreate(ProductBase):
     name: str = Field(..., min_length=1, description="نام محصول")
     category: str = Field(..., min_length=1, description="دسته‌بندی محصول (مثال: ساتن، کتان، ابریشم)")
     unit: str = Field(..., min_length=1, description="واحد اندازه‌گیری (مثال: متر، یارد، طاقه)")
-    quantity_available: float = Field(default=0, ge=0, description="موجودی موجود")
 
     class Config:
         json_schema_extra = {
@@ -32,7 +37,6 @@ class ProductCreate(ProductBase):
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
-                "quantity_available": 300,
                 "colors": "سفید، مشکی، آبی، قرمز"  # White, Black, Blue, Red
             }
         }
@@ -46,7 +50,6 @@ class ProductUpdate(ProductBase):
         json_schema_extra = {
             "example": {
                 "name": "پارچه ساتن ابریشمی درجه یک",  # Premium Silk Satin Fabric
-                "quantity_available": 250,
                 "colors": "سفید، مشکی"
             }
         }
@@ -110,7 +113,6 @@ class Product(ProductBase):
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
-                "quantity_available": 300,
                 "colors": "سفید، مشکی، آبی، قرمز",  # White, Black, Blue, Red
                 "images": ["/uploads/products/P006_20231110_123456.jpg", "/uploads/products/P006_20231110_123457.jpg"],
                 "created_at": "2023-01-15T10:30:00",

@@ -108,7 +108,7 @@ class InvoiceItem(InvoiceItemBase):
                     "description": "پارچه کتان با کیفیت عالی",  # High quality cotton fabric
                     "category": "کتان",  # Cotton
                     "unit": "متر",  # Meter
-                    "quantity_available": 200,
+                    "is_available": True,
                     "colors": "سفید، آبی، قرمز",  # White, Blue, Red
                     "images": ["/uploads/products/P001_20231110_123456.jpg"],
                     "created_at": "2023-01-15T10:30:00",

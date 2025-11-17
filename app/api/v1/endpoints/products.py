@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Response
 from sqlalchemy import or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -16,6 +16,148 @@ from app.db.session import get_db
 router = APIRouter()
 
 
+@router.post("/{product_id}/images", response_model=schemas.Product)
+async def add_product_images(
+    *,
+    db: AsyncSession = Depends(get_db),
+    product_id: int,
+    images: List[UploadFile] = File(..., description="عکس‌های جدید محصول"),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+) -> Any:
+    """
+    افزودن عکس جدید به یک محصول (admin/warehouse)
+    """
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.images))
+        .where(models.Product.id == product_id)
+    )
+    product = result.scalars().unique().first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="محصول یافت نشد",
+        )
+
+    product_upload_dir = os.path.join(settings.UPLOADS_DIR, "products")
+    os.makedirs(product_upload_dir, exist_ok=True)
+
+    current_images_count = len(product.images) if product.images else 0
+
+    for idx, image_file in enumerate(images):
+        try:
+            contents = await image_file.read()
+            await image_file.seek(0)
+
+            file_ext = os.path.splitext(image_file.filename)[1].lower() if image_file.filename else '.jpg'
+            if file_ext not in settings.ALLOWED_UPLOAD_EXTENSIONS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"نوع فایل عکس شماره {idx + 1} مجاز نیست. فقط فایل‌های تصویری مجاز هستند",
+                )
+
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            safe_filename = f"{product.code}_{timestamp}_{current_images_count + idx}{file_ext}"
+            file_path = os.path.join(product_upload_dir, safe_filename)
+            with open(file_path, "wb") as f:
+                f.write(contents)
+
+            relative_path = f"/uploads/products/{safe_filename}"
+            product_image = models.ProductImage(
+                product_id=product.id,
+                image_url=relative_path
+            )
+            db.add(product_image)
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Error processing image {idx + 1}: {e}")
+            continue
+
+    await db.commit()
+
+    # Reload with images
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.images))
+        .where(models.Product.id == product_id)
+    )
+    product_with_images = result.scalars().unique().first()
+
+    product_dict = {
+        'id': product_with_images.id,
+        'code': product_with_images.code,
+        'name': product_with_images.name,
+        'description': product_with_images.description,
+        'category': product_with_images.category,
+        'unit': product_with_images.unit,
+        'colors': product_with_images.colors,
+        'created_at': product_with_images.created_at,
+        'updated_at': product_with_images.updated_at,
+        'images': [img.image_url for img in product_with_images.images] if product_with_images.images else []
+    }
+    return schemas.Product(**product_dict)
+
+
+@router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_200_OK)
+async def delete_product_image(
+    *,
+    db: AsyncSession = Depends(get_db),
+    product_id: int,
+    image_id: int,
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+) -> Any:
+    """
+    حذف یک عکس از محصول (admin/warehouse) + حذف فایل از دیسک
+    نکته: پارامتر image_id هم می‌تواند شناسه رکورد عکس باشد و هم ایندکس عکس برای همان محصول (۰ مبنا).
+    """
+    # Ensure product exists
+    product_result = await db.execute(
+        select(models.Product).where(models.Product.id == product_id)
+    )
+    product = product_result.scalars().first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="محصول یافت نشد")
+
+    # Load image by id and validate ownership
+    image_result_by_id = await db.execute(
+        select(models.ProductImage).where(
+            models.ProductImage.id == image_id,
+            models.ProductImage.product_id == product_id,
+        )
+    )
+    image = image_result_by_id.scalars().first()
+
+    # If not found by id, try treating image_id as index (0-based) among product images ordered by id
+    if not image:
+        images_list_result = await db.execute(
+            select(models.ProductImage).where(
+                models.ProductImage.product_id == product_id
+            ).order_by(models.ProductImage.id.asc())
+        )
+        images_list = images_list_result.scalars().all()
+        if 0 <= image_id < len(images_list):
+            image = images_list[image_id]
+
+    if not image:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عکس موردنظر یافت نشد")
+
+    # Delete file from disk if exists
+    if image.image_url:
+        parts = image.image_url.lstrip("/").split("/")
+        if len(parts) >= 3 and parts[0] == "uploads" and parts[1] == "products":
+            filename = "/".join(parts[2:])
+            full_path = os.path.join(settings.UPLOADS_DIR, "products", filename)
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    # لاگ خطا ولی ادامه حذف رکورد
+                    print(f"Error deleting image file: {e}")
+
+    await db.delete(image)
+    await db.commit()
+    return {"detail": "deleted"}
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(
     db: AsyncSession = Depends(get_db),
@@ -40,10 +182,7 @@ async def read_products(
     if category:
         filters.append(models.Product.category.ilike(f"%{category}%"))
     if in_stock is not None:
-        if in_stock:
-            filters.append(models.Product.quantity_available > 0)
-        else:
-            filters.append(models.Product.quantity_available <= 0)
+        filters.append(models.Product.is_available == in_stock)
     
     if filters:
         query = query.where(and_(*filters))
@@ -63,7 +202,13 @@ async def read_products(
             'description': product.description,
             'category': product.category,
             'unit': product.unit,
-            'quantity_available': product.quantity_available,
+            'is_available': product.is_available,
+            'shrinkage': product.shrinkage,
+            'visible': product.visible,
+            'width': product.width,
+            'usage': product.usage,
+            'season': product.season,
+            'weave_type': product.weave_type,
             'colors': product.colors,
             'created_at': product.created_at,
             'updated_at': product.updated_at,
@@ -82,9 +227,15 @@ async def create_product(
     name: str = Form(..., min_length=1, description="نام محصول"),
     category: str = Form(..., min_length=1, description="دسته‌بندی محصول"),
     unit: str = Form(..., min_length=1, description="واحد اندازه‌گیری"),
-    quantity_available: float = Form(default=0, ge=0, description="موجودی موجود"),
+    is_available: bool = Form(default=True, description="موجود است؟"),
     description: Optional[str] = Form(None, description="توضیحات محصول"),
     colors: Optional[str] = Form(None, description="رنگ‌ها"),
+    shrinkage: Optional[str] = Form(None, description="ابرِفت"),
+    visible: bool = Form(default=True, description="نمایش در سایت"),
+    width: Optional[str] = Form(None, description="عرض"),
+    usage: Optional[str] = Form(None, description="کاربرد"),
+    season: Optional[str] = Form(None, description="فصل"),
+    weave_type: Optional[str] = Form(None, description="نوع بافت"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های محصول"),
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
@@ -121,9 +272,15 @@ async def create_product(
         name=name,
         category=category,
         unit=unit,
-        quantity_available=quantity_available,
+        is_available=is_available,
         description=description,
         colors=colors,
+        shrinkage=shrinkage,
+        visible=visible,
+        width=width,
+        usage=usage,
+        season=season,
+        weave_type=weave_type,
     )
     db.add(product)
     await db.flush()  # Flush to get the product ID
@@ -135,17 +292,8 @@ async def create_product(
         
         for idx, image_file in enumerate(images):
             try:
-                # Check file size
-                file_size = 0
                 contents = await image_file.read()
-                file_size = len(contents)
                 await image_file.seek(0)
-                
-                if file_size > settings.MAX_UPLOAD_SIZE:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"حجم عکس شماره {idx + 1} بیش از حد مجاز است",
-                    )
                 
                 # Check file extension
                 file_ext = os.path.splitext(image_file.filename)[1].lower() if image_file.filename else '.jpg'
@@ -195,7 +343,13 @@ async def create_product(
         'description': product_with_images.description,
         'category': product_with_images.category,
         'unit': product_with_images.unit,
-        'quantity_available': product_with_images.quantity_available,
+        'is_available': product_with_images.is_available,
+        'shrinkage': product_with_images.shrinkage,
+        'visible': product_with_images.visible,
+        'width': product_with_images.width,
+        'usage': product_with_images.usage,
+        'season': product_with_images.season,
+        'weave_type': product_with_images.weave_type,
         'colors': product_with_images.colors,
         'created_at': product_with_images.created_at,
         'updated_at': product_with_images.updated_at,
@@ -233,7 +387,13 @@ async def read_product(
         'description': product.description,
         'category': product.category,
         'unit': product.unit,
-        'quantity_available': product.quantity_available,
+        'is_available': product.is_available,
+        'shrinkage': product.shrinkage,
+        'visible': product.visible,
+        'width': product.width,
+        'usage': product.usage,
+        'season': product.season,
+        'weave_type': product.weave_type,
         'colors': product.colors,
         'created_at': product.created_at,
         'updated_at': product.updated_at,
@@ -252,9 +412,15 @@ async def update_product(
     name: Optional[str] = Form(None, description="نام محصول"),
     category: Optional[str] = Form(None, description="دسته‌بندی محصول"),
     unit: Optional[str] = Form(None, description="واحد اندازه‌گیری"),
-    quantity_available: Optional[float] = Form(None, ge=0, description="موجودی موجود"),
+    is_available: Optional[bool] = Form(None, description="موجود است؟"),
     description: Optional[str] = Form(None, description="توضیحات محصول"),
     colors: Optional[str] = Form(None, description="رنگ‌ها"),
+    shrinkage: Optional[str] = Form(None, description="ابرِفت"),
+    visible: Optional[bool] = Form(None, description="نمایش در سایت"),
+    width: Optional[str] = Form(None, description="عرض"),
+    usage: Optional[str] = Form(None, description="کاربرد"),
+    season: Optional[str] = Form(None, description="فصل"),
+    weave_type: Optional[str] = Form(None, description="نوع بافت"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های جدید محصول (اضافه می‌شوند به عکس‌های موجود)"),
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
@@ -299,12 +465,24 @@ async def update_product(
         product.category = category
     if unit is not None:
         product.unit = unit
-    if quantity_available is not None:
-        product.quantity_available = quantity_available
+    if is_available is not None:
+        product.is_available = is_available
     if description is not None:
         product.description = description
     if colors is not None:
         product.colors = colors
+    if shrinkage is not None:
+        product.shrinkage = shrinkage
+    if visible is not None:
+        product.visible = visible
+    if width is not None:
+        product.width = width
+    if usage is not None:
+        product.usage = usage
+    if season is not None:
+        product.season = season
+    if weave_type is not None:
+        product.weave_type = weave_type
     
     db.add(product)
     await db.flush()  # Flush to ensure product is saved before adding images
@@ -319,17 +497,8 @@ async def update_product(
         
         for idx, image_file in enumerate(images):
             try:
-                # Check file size
-                file_size = 0
                 contents = await image_file.read()
-                file_size = len(contents)
                 await image_file.seek(0)
-                
-                if file_size > settings.MAX_UPLOAD_SIZE:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"حجم عکس شماره {idx + 1} بیش از حد مجاز است",
-                    )
                 
                 # Check file extension
                 file_ext = os.path.splitext(image_file.filename)[1].lower() if image_file.filename else '.jpg'
@@ -379,7 +548,13 @@ async def update_product(
         'description': product_with_images.description,
         'category': product_with_images.category,
         'unit': product_with_images.unit,
-        'quantity_available': product_with_images.quantity_available,
+        'is_available': product_with_images.is_available,
+        'shrinkage': product_with_images.shrinkage,
+        'visible': product_with_images.visible,
+        'width': product_with_images.width,
+        'usage': product_with_images.usage,
+        'season': product_with_images.season,
+        'weave_type': product_with_images.weave_type,
         'colors': product_with_images.colors,
         'created_at': product_with_images.created_at,
         'updated_at': product_with_images.updated_at,
@@ -410,17 +585,30 @@ async def delete_product(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="محصول یافت نشد",  # Product not found
         )
-    
-    # Check if product is used in any invoice
-    invoice_items_query = select(models.InvoiceItem).where(models.InvoiceItem.product_id == product_id)
-    invoice_items_result = await db.execute(invoice_items_query)
-    invoice_items = invoice_items_result.scalars().first()
-    
-    if invoice_items:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="این محصول در فاکتورها استفاده شده است و قابل حذف نیست",  # This product is used in invoices and cannot be deleted
-        )
+
+    # Delete only the invoice items related to this product (not the invoices themselves)
+    invoice_items_result = await db.execute(
+        select(models.InvoiceItem).where(models.InvoiceItem.product_id == product_id)
+    )
+    invoice_items_to_delete = invoice_items_result.scalars().all()
+    for invoice_item in invoice_items_to_delete:
+        await db.delete(invoice_item)
+
+    # Delete only the cart items related to this product (not the carts themselves)
+    cart_items_result = await db.execute(
+        select(models.CartItem).where(models.CartItem.product_id == product_id)
+    )
+    cart_items_to_delete = cart_items_result.scalars().all()
+    for cart_item in cart_items_to_delete:
+        await db.delete(cart_item)
+
+    # Delete inventory transactions for this product
+    inventory_result = await db.execute(
+        select(models.InventoryTransaction).where(models.InventoryTransaction.product_id == product_id)
+    )
+    inventory_to_delete = inventory_result.scalars().all()
+    for inv_tx in inventory_to_delete:
+        await db.delete(inv_tx)
     
     # Delete image files before deleting product (cascade will handle ProductImage records)
     if product.images:
@@ -444,7 +632,6 @@ async def delete_product(
         'description': product.description,
         'category': product.category,
         'unit': product.unit,
-        'quantity_available': product.quantity_available,
         'colors': product.colors,
         'created_at': product.created_at,
         'updated_at': product.updated_at,

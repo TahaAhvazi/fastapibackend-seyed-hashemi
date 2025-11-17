@@ -71,15 +71,6 @@ async def create_inventory_transaction(
     )
     db.add(transaction)
     
-    # Update product quantity
-    product.quantity_available += transaction_in.change_quantity
-    if product.quantity_available < 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="موجودی محصول نمی‌تواند منفی باشد",  # Product quantity cannot be negative
-        )
-    db.add(product)
-    
     await db.commit()
     await db.refresh(transaction)
     return transaction
@@ -116,9 +107,8 @@ async def get_product_quantity(
     return {
         "product_id": product.id,
         "product_name": product.name,
-        "total_quantity": product.quantity_available,
-        "reserved_quantity": reserved_quantity,
-        "available_quantity": product.quantity_available
+        "is_available": product.is_available,
+        "reserved_quantity": reserved_quantity
     }
 
 
@@ -145,10 +135,10 @@ async def reserve_stock(
                 detail=f"محصول با شناسه {item.product_id} یافت نشد",  # Product with ID {item.product_id} not found
             )
         
-        if product.quantity_available < item.quantity:
+        if not product.is_available:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"موجودی محصول {product.name} کافی نیست",  # Not enough stock for product {product.name}
+                detail=f"محصول {product.name} در حال حاضر موجود نیست",  # Product {product.name} is not available
             )
         
         # Create inventory transaction for reservation
@@ -162,10 +152,6 @@ async def reserve_stock(
         )
         db.add(transaction)
         transactions.append(transaction)
-        
-        # Update product quantity
-        product.quantity_available -= item.quantity
-        db.add(product)
     
     await db.commit()
     
@@ -210,10 +196,6 @@ async def unreserve_stock(
         )
         db.add(transaction)
         transactions.append(transaction)
-        
-        # Update product quantity
-        product.quantity_available += item.quantity
-        db.add(product)
     
     await db.commit()
     

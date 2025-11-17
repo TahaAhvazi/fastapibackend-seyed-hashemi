@@ -142,10 +142,10 @@ async def create_invoice(
                 detail=f"تعداد برای محصول {product.name} باید بزرگ‌تر از ۰ باشد",
             )
 
-        if product.quantity_available < effective_quantity:
+        if not product.is_available:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"موجودی محصول {product.name} کافی نیست",
+                detail=f"محصول {product.name} در حال حاضر موجود نیست",
             )
 
         computed_quantities.append(effective_quantity)
@@ -385,12 +385,12 @@ async def reserve_invoice_stock(
         invoice.total = new_subtotal
         db.add(invoice)
 
-    # Check stock availability and reserve using possibly-updated items
+    # Check product availability using possibly-updated items
     for item in invoice.items:
-        if item.product.quantity_available < item.quantity:
+        if not item.product.is_available:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"موجودی محصول {item.product.name} کافی نیست",  # Not enough stock for product {item.product.name}
+                detail=f"محصول {item.product.name} در حال حاضر موجود نیست",  # Product {item.product.name} is not available
             )
         
         # Create inventory transaction for reservation
@@ -403,10 +403,6 @@ async def reserve_invoice_stock(
             created_by=current_user.id,
         )
         db.add(inventory_transaction)
-        
-        # Update product quantity
-        item.product.quantity_available -= item.quantity
-        db.add(item.product)
     
     # Update invoice status
     invoice.status = schemas.InvoiceStatus.ACCOUNTANT_PENDING
@@ -640,10 +636,6 @@ async def cancel_invoice(
                 created_by=current_user.id,
             )
             db.add(inventory_transaction)
-            
-            # Update product quantity
-            item.product.quantity_available += item.quantity
-            db.add(item.product)
     
     # Update invoice status
     invoice.status = schemas.InvoiceStatus.CANCELLED

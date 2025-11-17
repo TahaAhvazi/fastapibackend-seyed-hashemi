@@ -35,3 +35,4 @@ from app.schemas.report import IncomeReport, ReportType, ReportParams, ProductSa
 from app.schemas.cart import CartCreate, CartUpdate, Cart, CartItemCreate, CartItem, CartStatus, CartResponse
 from app.schemas.slider import SliderCreate, SliderUpdate, Slider
 from app.schemas.article import ArticleCreate, ArticleUpdate, Article
+from app.schemas.category import CategoryCreate, CategoryUpdate, Category

@@ -149,7 +149,7 @@ class Cart(CartBase):
                             "category": "کتان",
                             "unit": "متر",
                             "pieces_per_roll": 50,
-                            "quantity_available": 200,
+                            "is_available": True,
                             "colors": "سفید، آبی، قرمز",
                             "part_number": "CTN-001",
                             "reorder_location": "تهران، بازار",

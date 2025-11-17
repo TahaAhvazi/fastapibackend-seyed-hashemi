@@ -58,18 +58,16 @@ class InventoryTransaction(InventoryTransactionBase):
 class ProductQuantity(BaseModel):
     product_id: int
     product_name: str
-    total_quantity: float
+    is_available: bool
     reserved_quantity: float
-    available_quantity: float
 
     class Config:
         json_schema_extra = {
             "example": {
                 "product_id": 1,
                 "product_name": "پارچه مخمل سلطنتی",  # Royal Velvet Fabric
-                "total_quantity": 500.0,
-                "reserved_quantity": 5.0,
-                "available_quantity": 495.0  # After reservation of 5 units
+                "is_available": True,
+                "reserved_quantity": 5.0
             }
         }
 

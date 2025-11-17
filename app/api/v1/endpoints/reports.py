@@ -309,19 +309,19 @@ async def get_dashboard_summary(
         status_result = await db.execute(status_query)
         check_status_counts[status.value] = status_result.scalar() or 0
     
-    # Get low stock products
-    low_stock_query = select(models.Product).where(models.Product.quantity_available < 10).limit(5)
-    low_stock_result = await db.execute(low_stock_query)
-    low_stock_products = low_stock_result.scalars().all()
+    # Get unavailable products
+    unavailable_query = select(models.Product).where(models.Product.is_available == False).limit(5)
+    unavailable_result = await db.execute(unavailable_query)
+    unavailable_products = unavailable_result.scalars().all()
     
-    low_stock_items = [
+    unavailable_items = [
         {
             "id": product.id,
             "name": product.name,
             "code": product.code,
-            "quantity": product.quantity_available
+            "is_available": product.is_available
         }
-        for product in low_stock_products
+        for product in unavailable_products
     ]
     
     # Get recent invoices
@@ -398,7 +398,7 @@ async def get_dashboard_summary(
         "revenue_change_percentage": month_growth,
         "pending_invoices_count": invoice_status_counts.get("pending", 0),
         "checks_in_progress_count": check_status_counts.get("in_progress", 0),
-        "low_stock_products_count": len(low_stock_items),
+        "unavailable_products_count": len(unavailable_items),
         "top_selling_products": top_selling_products,
         "recent_invoices": recent_invoice_items
     }
