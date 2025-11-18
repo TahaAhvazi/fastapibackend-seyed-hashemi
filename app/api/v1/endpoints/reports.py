@@ -391,6 +391,24 @@ async def get_dashboard_summary(
         for product, quantity_sold in top_products_data
     ]
     
+    # Get low stock products count
+    # Calculate current stock for each product (sum of all inventory transactions)
+    # Products with stock less than 10 are considered low stock
+    low_stock_threshold = 10.0
+    low_stock_query = select(
+        models.Product.id
+    ).outerjoin(
+        models.InventoryTransaction, models.Product.id == models.InventoryTransaction.product_id
+    ).where(
+        models.Product.is_available == True
+    ).group_by(models.Product.id).having(
+        func.coalesce(func.sum(models.InventoryTransaction.change_quantity), 0) < low_stock_threshold
+    )
+    
+    low_stock_result = await db.execute(low_stock_query)
+    low_stock_products = low_stock_result.scalars().all()
+    low_stock_products_count = len(low_stock_products)
+    
     # Return dashboard summary
     return {
         "total_revenue_current_month": month_revenue,
@@ -398,7 +416,7 @@ async def get_dashboard_summary(
         "revenue_change_percentage": month_growth,
         "pending_invoices_count": invoice_status_counts.get("pending", 0),
         "checks_in_progress_count": check_status_counts.get("in_progress", 0),
-        "unavailable_products_count": len(unavailable_items),
+        "low_stock_products_count": low_stock_products_count,
         "top_selling_products": top_selling_products,
         "recent_invoices": recent_invoice_items
     }
