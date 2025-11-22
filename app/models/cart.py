@@ -29,6 +29,9 @@ class CartItem(Base):
     quantity = Column(Float, nullable=False)
     unit = Column(String, nullable=False)  # متر / یارد / طاقه
     price = Column(Float, nullable=False)  # Price per unit
+    # Series and Color fields
+    selected_series = Column(JSON, nullable=True)  # لیست شماره‌های سری انتخاب شده (فقط برای محصولات سری)
+    selected_color = Column(String, nullable=True)  # رنگ انتخاب شده (فقط برای محصولات غیرسری)
     
     # Relationships
     cart = relationship("Cart", back_populates="items")

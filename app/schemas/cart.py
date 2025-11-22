@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
@@ -15,10 +15,18 @@ class CartStatus(str, Enum):
 
 # Cart Item schemas
 class CartItemBase(BaseModel):
-    product_id: int
-    quantity: float
-    unit: str
-    price: float
+    product_id: int = Field(..., description="شناسه محصول")
+    quantity: float = Field(..., gt=0, description="تعداد/متراژ محصول")
+    unit: str = Field(..., description="واحد اندازه‌گیری (متر، یارد، طاقه)")
+    price: float = Field(..., gt=0, description="قیمت هر واحد")
+    selected_series: Optional[List[int]] = Field(
+        None, 
+        description="لیست شماره‌های سری انتخاب شده - الزامی برای محصولات سری (مثال: [1, 2, 3])"
+    )
+    selected_color: Optional[str] = Field(
+        None, 
+        description="رنگ انتخاب شده - الزامی برای محصولات غیرسری (مثال: 'قرمز')"
+    )
 
     @field_validator('quantity')
     @classmethod
@@ -78,7 +86,11 @@ class CartBase(BaseModel):
 
 
 class CartCreate(CartBase):
-    items: List[CartItemCreate] = Field(..., min_items=1)
+    items: List[CartItemCreate] = Field(
+        ..., 
+        min_items=1,
+        description="لیست آیتم‌های سفارش. توجه: برای محصولات سری باید selected_series و برای محصولات غیرسری باید selected_color ارسال شود."
+    )
 
     class Config:
         json_schema_extra = {
@@ -91,15 +103,19 @@ class CartCreate(CartBase):
                 "items": [
                     {
                         "product_id": 1,
-                        "quantity": 5,
+                        "quantity": 50,
                         "unit": "متر",
-                        "price": 350000
+                        "price": 350000,
+                        "selected_series": [1, 2, 3, 4, 5],
+                        "selected_color": None
                     },
                     {
                         "product_id": 2,
-                        "quantity": 3,
-                        "unit": "یارد",
-                        "price": 280000
+                        "quantity": 15,
+                        "unit": "متر",
+                        "price": 280000,
+                        "selected_series": None,
+                        "selected_color": "قرمز"
                     }
                 ]
             }
@@ -166,16 +182,84 @@ class Cart(CartBase):
         }
 
 
+# Order details schema
+class SeriesDetail(BaseModel):
+    """جزئیات سری برای محصولات سری"""
+    series_number: int
+    quantity: float  # متراژ این سری
+    unit: str
+
+
+class ColorDetail(BaseModel):
+    """جزئیات رنگ برای محصولات غیرسری"""
+    color: str
+    quantity: float  # متراژ این رنگ
+    unit: str
+
+
+class OrderItemDetail(BaseModel):
+    """جزئیات هر آیتم سفارش"""
+    product_id: int
+    product_name: str
+    product_code: str
+    is_series: bool
+    total_quantity: float  # کل متراژ
+    unit: str
+    price_per_unit: float
+    total_price: float
+    # برای محصولات سری
+    series_details: Optional[List[SeriesDetail]] = None
+    # برای محصولات غیرسری
+    color_detail: Optional[ColorDetail] = None
+
+
 class CartResponse(BaseModel):
     id: int
     message: str
     total_amount: float
+    order_details: List[OrderItemDetail] = Field(default=[], description="جزئیات سفارش")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "id": 1,
                 "message": "سفارش شما با موفقیت ثبت شد. کد پیگیری: #1",
-                "total_amount": 2590000
+                "total_amount": 2590000,
+                "order_details": [
+                    {
+                        "product_id": 1,
+                        "product_name": "پارچه کتان",
+                        "product_code": "P001",
+                        "is_series": True,
+                        "total_quantity": 50,
+                        "unit": "متر",
+                        "price_per_unit": 350000,
+                        "total_price": 17500000,
+                        "series_details": [
+                            {"series_number": 1, "quantity": 10, "unit": "متر"},
+                            {"series_number": 2, "quantity": 10, "unit": "متر"},
+                            {"series_number": 3, "quantity": 10, "unit": "متر"},
+                            {"series_number": 4, "quantity": 10, "unit": "متر"},
+                            {"series_number": 5, "quantity": 10, "unit": "متر"}
+                        ],
+                        "color_detail": None
+                    },
+                    {
+                        "product_id": 2,
+                        "product_name": "پارچه ساتن",
+                        "product_code": "P002",
+                        "is_series": False,
+                        "total_quantity": 15,
+                        "unit": "متر",
+                        "price_per_unit": 280000,
+                        "total_price": 4200000,
+                        "series_details": None,
+                        "color_detail": {
+                            "color": "قرمز",
+                            "quantity": 15,
+                            "unit": "متر"
+                        }
+                    }
+                ]
             }
         }

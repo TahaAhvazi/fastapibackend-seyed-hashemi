@@ -1,5 +1,6 @@
 from typing import Any, List, Optional
 import os
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Response
@@ -92,6 +93,11 @@ async def add_product_images(
         'category': product_with_images.category,
         'unit': product_with_images.unit,
         'colors': product_with_images.colors,
+        'is_series': product_with_images.is_series,
+        'series_inventory': product_with_images.series_inventory,
+        'series_numbers': product_with_images.series_numbers,
+        'available_colors': product_with_images.available_colors,
+        'color_inventory': product_with_images.color_inventory,
         'created_at': product_with_images.created_at,
         'updated_at': product_with_images.updated_at,
         'images': [img.image_url for img in product_with_images.images] if product_with_images.images else []
@@ -210,6 +216,11 @@ async def read_products(
             'season': product.season,
             'weave_type': product.weave_type,
             'colors': product.colors,
+            'is_series': product.is_series,
+            'series_inventory': product.series_inventory,
+            'series_numbers': product.series_numbers,
+            'available_colors': product.available_colors,
+            'color_inventory': product.color_inventory,
             'created_at': product.created_at,
             'updated_at': product.updated_at,
             'images': [img.image_url for img in product.images] if product.images else []
@@ -236,6 +247,11 @@ async def create_product(
     usage: Optional[str] = Form(None, description="کاربرد"),
     season: Optional[str] = Form(None, description="فصل"),
     weave_type: Optional[str] = Form(None, description="نوع بافت"),
+    is_series: bool = Form(default=False, description="آیا محصول سری است؟"),
+    series_inventory: Optional[str] = Form(None, description="لیست موجودی سری (JSON string، مثلاً [10, 20, 30])"),
+    series_numbers: Optional[str] = Form(None, description="لیست شماره‌های سری (JSON string، مثلاً [1, 2, 3, ..., 10])"),
+    available_colors: Optional[str] = Form(None, description="لیست رنگ‌های موجود (JSON string، مثلاً [\"قرمز\", \"آبی\", \"سبز\"])"),
+    color_inventory: Optional[str] = Form(None, description="لیست موجودی هر رنگ (JSON string، مثلاً [\"5\", \"10\", \"3\"])"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های محصول"),
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
@@ -266,6 +282,72 @@ async def create_product(
             detail="محصولی با این کد قبلاً ثبت شده است",  # A product with this code already exists
         )
     
+    # Parse JSON strings for list fields
+    series_inventory_list = None
+    series_numbers_list = None
+    available_colors_list = None
+    color_inventory_list = None
+    
+    if series_inventory:
+        try:
+            series_inventory_list = json.loads(series_inventory)
+            if not isinstance(series_inventory_list, list):
+                raise ValueError("series_inventory must be a list")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت series_inventory نامعتبر است: {str(e)}"
+            )
+    
+    if series_numbers:
+        try:
+            series_numbers_list = json.loads(series_numbers)
+            if not isinstance(series_numbers_list, list):
+                raise ValueError("series_numbers must be a list")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت series_numbers نامعتبر است: {str(e)}"
+            )
+    
+    if available_colors:
+        try:
+            available_colors_list = json.loads(available_colors)
+            if not isinstance(available_colors_list, list):
+                raise ValueError("available_colors must be a list")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت available_colors نامعتبر است: {str(e)}"
+            )
+    
+    if color_inventory:
+        try:
+            color_inventory_list = json.loads(color_inventory)
+            if not isinstance(color_inventory_list, list):
+                raise ValueError("color_inventory must be a list")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت color_inventory نامعتبر است: {str(e)}"
+            )
+    
+    # Validate: if is_series is True, series fields should be provided
+    if is_series:
+        if not series_inventory_list or not series_numbers_list:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="برای محصولات سری، series_inventory و series_numbers الزامی هستند"
+            )
+    else:
+        # For non-series products, color fields should be provided
+        if available_colors_list and color_inventory_list:
+            if len(available_colors_list) != len(color_inventory_list):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="تعداد رنگ‌ها باید با تعداد موجودی هر رنگ برابر باشد"
+                )
+    
     # Create new product
     product = models.Product(
         code=code,
@@ -281,6 +363,11 @@ async def create_product(
         usage=usage,
         season=season,
         weave_type=weave_type,
+        is_series=is_series,
+        series_inventory=series_inventory_list,
+        series_numbers=series_numbers_list,
+        available_colors=available_colors_list,
+        color_inventory=color_inventory_list,
     )
     db.add(product)
     await db.flush()  # Flush to get the product ID
@@ -421,6 +508,11 @@ async def update_product(
     usage: Optional[str] = Form(None, description="کاربرد"),
     season: Optional[str] = Form(None, description="فصل"),
     weave_type: Optional[str] = Form(None, description="نوع بافت"),
+    is_series: Optional[bool] = Form(None, description="آیا محصول سری است؟"),
+    series_inventory: Optional[str] = Form(None, description="لیست موجودی سری (JSON string، مثلاً [10, 20, 30])"),
+    series_numbers: Optional[str] = Form(None, description="لیست شماره‌های سری (JSON string، مثلاً [1, 2, 3, ..., 10])"),
+    available_colors: Optional[str] = Form(None, description="لیست رنگ‌های موجود (JSON string، مثلاً [\"قرمز\", \"آبی\", \"سبز\"])"),
+    color_inventory: Optional[str] = Form(None, description="لیست موجودی هر رنگ (JSON string، مثلاً [\"5\", \"10\", \"3\"])"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های جدید محصول (اضافه می‌شوند به عکس‌های موجود)"),
     current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
 ) -> Any:
@@ -483,6 +575,75 @@ async def update_product(
         product.season = season
     if weave_type is not None:
         product.weave_type = weave_type
+    
+    # Handle series and color fields
+    if is_series is not None:
+        product.is_series = is_series
+    
+    # Parse and update series fields
+    if series_inventory is not None:
+        try:
+            series_inventory_list = json.loads(series_inventory)
+            if not isinstance(series_inventory_list, list):
+                raise ValueError("series_inventory must be a list")
+            product.series_inventory = series_inventory_list
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت series_inventory نامعتبر است: {str(e)}"
+            )
+    
+    if series_numbers is not None:
+        try:
+            series_numbers_list = json.loads(series_numbers)
+            if not isinstance(series_numbers_list, list):
+                raise ValueError("series_numbers must be a list")
+            product.series_numbers = series_numbers_list
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت series_numbers نامعتبر است: {str(e)}"
+            )
+    
+    if available_colors is not None:
+        try:
+            available_colors_list = json.loads(available_colors)
+            if not isinstance(available_colors_list, list):
+                raise ValueError("available_colors must be a list")
+            product.available_colors = available_colors_list
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت available_colors نامعتبر است: {str(e)}"
+            )
+    
+    if color_inventory is not None:
+        try:
+            color_inventory_list = json.loads(color_inventory)
+            if not isinstance(color_inventory_list, list):
+                raise ValueError("color_inventory must be a list")
+            product.color_inventory = color_inventory_list
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"فرمت color_inventory نامعتبر است: {str(e)}"
+            )
+    
+    # Validate: if is_series is True, series fields should be provided
+    if product.is_series:
+        if not product.series_inventory or not product.series_numbers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="برای محصولات سری، series_inventory و series_numbers الزامی هستند"
+            )
+    else:
+        # For non-series products, validate color fields if provided
+        if product.available_colors and product.color_inventory:
+            if len(product.available_colors) != len(product.color_inventory):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="تعداد رنگ‌ها باید با تعداد موجودی هر رنگ برابر باشد"
+                )
     
     db.add(product)
     await db.flush()  # Flush to ensure product is saved before adding images

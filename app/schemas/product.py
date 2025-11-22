@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
@@ -18,6 +18,14 @@ class ProductBase(BaseModel):
     usage: Optional[str] = None  # کاربرد
     season: Optional[str] = None  # فصل
     weave_type: Optional[str] = None  # نوع بافت
+    # Series and Color fields
+    is_series: Optional[bool] = None  # آیا محصول سری است؟
+    # For series products
+    series_inventory: Optional[List[int]] = None  # لیست موجودی سری (مثلاً [10, 20, 30])
+    series_numbers: Optional[List[int]] = None  # لیست شماره‌های سری (مثلاً [1, 2, 3, ..., 10])
+    # For non-series products (with color variants)
+    available_colors: Optional[List[str]] = None  # لیست رنگ‌های موجود (مثلاً ["قرمز", "آبی", "سبز"])
+    color_inventory: Optional[List[str]] = None  # لیست موجودی هر رنگ (مثلاً ["5", "10", "3"])
 
 
 # Properties to receive via API on creation
@@ -37,7 +45,12 @@ class ProductCreate(ProductBase):
                 "description": "پارچه ساتن ابریشمی با کیفیت عالی برای لباس مجلسی",  # High quality silk satin fabric for formal dresses
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
-                "colors": "سفید، مشکی، آبی، قرمز"  # White, Black, Blue, Red
+                "colors": "سفید، مشکی، آبی، قرمز",  # White, Black, Blue, Red
+                "is_series": False,  # Is this a series product?
+                "series_inventory": [10, 20, 30],  # Series inventory (only for series products)
+                "series_numbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # Series numbers (only for series products)
+                "available_colors": ["قرمز", "آبی", "سبز"],  # Available colors (only for non-series products)
+                "color_inventory": ["5", "10", "3"]  # Color inventory (only for non-series products)
             }
         }
 
@@ -114,6 +127,11 @@ class Product(ProductBase):
                 "category": "ساتن",  # Satin
                 "unit": "متر",  # Meter
                 "colors": "سفید، مشکی، آبی، قرمز",  # White, Black, Blue, Red
+                "is_series": False,  # Is this a series product?
+                "series_inventory": None,  # Series inventory (only for series products)
+                "series_numbers": None,  # Series numbers (only for series products)
+                "available_colors": ["قرمز", "آبی", "سبز"],  # Available colors (only for non-series products)
+                "color_inventory": ["5", "10", "3"],  # Color inventory (only for non-series products)
                 "images": ["/uploads/products/P006_20231110_123456.jpg", "/uploads/products/P006_20231110_123457.jpg"],
                 "created_at": "2023-01-15T10:30:00",
                 "updated_at": "2023-01-15T10:30:00"
