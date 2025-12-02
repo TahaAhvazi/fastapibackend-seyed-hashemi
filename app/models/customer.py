@@ -21,6 +21,8 @@ class Customer(Base):
     # Balance fields
     current_balance = Column(Float, default=0.0, nullable=False)  # Positive = creditor, Negative = debtor
     balance_notes = Column(Text, nullable=True)  # Notes about balance adjustments
+    # Authentication
+    hashed_password = Column(String, nullable=True)  # Password hash for customer login
     # Excel columns - تمام ستون‌های Excel برای ذخیره جزئیات
     excel_data = Column(JSON, nullable=True)  # JSON object containing all Excel columns with their values
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

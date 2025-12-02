@@ -1,6 +1,6 @@
 # Import all schemas to make them available
 from app.schemas.user import UserCreate, UserUpdate, User, UserRole
-from app.schemas.token import Token, TokenPayload, TokenWithRole
+from app.schemas.token import Token, TokenPayload, TokenWithRole, CustomerLogin, CustomerToken
 from app.schemas.product import ProductCreate, ProductUpdate, Product
 from app.schemas.customer import (
     CustomerCreate, 
@@ -36,7 +36,8 @@ from app.schemas.cart import (
     CartCreate, 
     CartUpdate, 
     Cart, 
-    CartItemCreate, 
+    CartItemCreate,
+    CartItemUpdate,
     CartItem, 
     CartStatus, 
     CartResponse,

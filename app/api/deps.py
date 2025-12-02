@@ -1,7 +1,7 @@
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Security
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,11 @@ from app.db.session import get_db
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
 )
+
+# Customer authentication scheme
+# Using HTTPBearer to show token in Swagger UI with Authorize button
+# auto_error=True makes it required and shows lock icon in Swagger
+customer_bearer_scheme = HTTPBearer(auto_error=True)
 
 
 async def get_current_user(
@@ -73,3 +78,28 @@ async def get_current_admin_or_warehouse_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
     return current_user
+
+
+# Customer authentication dependencies
+async def get_current_customer(
+    credentials: HTTPAuthorizationCredentials = Security(customer_bearer_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> models.Customer:
+    """Get current authenticated customer from JWT token"""
+    token = credentials.credentials
+    
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        token_data = schemas.TokenPayload(**payload)
+    except (jwt.JWTError, ValidationError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="اعتبار احراز هویت معتبر نیست",
+        )
+    result = await db.execute(select(models.Customer).where(models.Customer.id == token_data.sub))
+    customer = result.scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="مشتری یافت نشد")
+    return customer

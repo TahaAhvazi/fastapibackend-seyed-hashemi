@@ -47,6 +47,19 @@ class CartItemCreate(CartItemBase):
     pass
 
 
+class CartItemUpdate(BaseModel):
+    quantity: Optional[float] = Field(None, gt=0, description="تعداد/متراژ محصول")
+    price: Optional[float] = Field(None, gt=0, description="قیمت هر واحد")
+    selected_series: Optional[List[int]] = Field(
+        None, 
+        description="لیست شماره‌های سری انتخاب شده"
+    )
+    selected_color: Optional[str] = Field(
+        None, 
+        description="رنگ انتخاب شده"
+    )
+
+
 class CartItem(CartItemBase):
     id: int
     cart_id: int

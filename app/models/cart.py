@@ -8,6 +8,7 @@ from app.db.base_class import Base
 
 class Cart(Base):
     id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True, index=True)  # برای پنل مشتریان
     customer_name = Column(String, nullable=False)
     customer_phone = Column(String, nullable=False)
     customer_email = Column(String, nullable=True)
@@ -20,6 +21,7 @@ class Cart(Base):
     
     # Relationships
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+    customer = relationship("Customer", foreign_keys=[customer_id])
 
 
 class CartItem(Base):
