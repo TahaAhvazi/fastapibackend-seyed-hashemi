@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+import re
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -204,12 +205,24 @@ async def submit_cart(
             if product.color_inventory:
                 color_index = product.available_colors.index(item.selected_color)
                 if color_index < len(product.color_inventory):
-                    available_quantity = float(product.color_inventory[color_index]) if product.color_inventory[color_index] else 0
-                    if item.quantity > available_quantity:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"موجودی رنگ {item.selected_color} محصول {product.name} کافی نیست. موجودی: {available_quantity}, درخواستی: {item.quantity}"
-                        )
+                    inventory_val = product.color_inventory[color_index]
+                    if not inventory_val:
+                        available_quantity = 0
+                    elif isinstance(inventory_val, (int, float)):
+                        available_quantity = float(inventory_val)
+                    else:
+                        # مدیریت رشته‌هایی مثل '10,12,13' یا '10-12-13'
+                        lengths = [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)", str(inventory_val))]
+                        available_quantity = sum(lengths) if lengths else 0
+                    
+                    # Note: We're calculating available_quantity but per user request, 
+                    # we're removing the strict inventory check for now as inventory 
+                    # can be multiple rolls/pieces (e.g., four 30m rolls).
+                    # if item.quantity > available_quantity:
+                    #     raise HTTPException(
+                    #         status_code=status.HTTP_400_BAD_REQUEST,
+                    #         detail=f"موجودی رنگ {item.selected_color} محصول {product.name} کافی نیست. موجودی: {available_quantity}, درخواستی: {item.quantity}"
+                    #     )
 
     # Calculate total amount
     total_amount = sum(item.quantity * item.price for item in cart_in.items)
