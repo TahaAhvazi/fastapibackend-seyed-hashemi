@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
@@ -20,6 +20,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 # Using HTTPBearer to show token in Swagger UI with Authorize button
 # auto_error=True makes it required and shows lock icon in Swagger
 customer_bearer_scheme = HTTPBearer(auto_error=True)
+customer_bearer_scheme_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -103,3 +104,26 @@ async def get_current_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="مشتری یافت نشد")
     return customer
+
+
+async def get_current_customer_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(customer_bearer_scheme_optional),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[models.Customer]:
+    """Get current authenticated customer from JWT token if provided, otherwise return None"""
+    if not credentials:
+        return None
+        
+    token = credentials.credentials
+    
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        token_data = schemas.TokenPayload(**payload)
+        
+        result = await db.execute(select(models.Customer).where(models.Customer.id == token_data.sub))
+        customer = result.scalars().first()
+        return customer
+    except (jwt.JWTError, ValidationError):
+        return None

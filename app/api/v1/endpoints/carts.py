@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 import re
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -84,11 +85,14 @@ async def submit_cart(
     *,
     db: AsyncSession = Depends(get_db),
     cart_in: schemas.CartCreate,
+    current_customer: Optional[models.Customer] = Depends(deps.get_current_customer_optional),
 ) -> Any:
     """
     ثبت سفارش عمومی (بدون نیاز به احراز هویت)
     
     **نکات مهم:**
+    - اگر کاربر لاگین کرده باشد، سفارش به حساب او متصل می‌شود.
+    - اگر کاربر لاگین نکرده باشد اما شماره تماس او با یکی از مشتریان ثبت‌نام شده مطابقت داشته باشد، سفارش به آن مشتری متصل می‌شود.
     - برای محصولات سری (is_series=true): فیلد `selected_series` الزامی است و باید لیست شماره سری‌ها ارسال شود
     - برای محصولات غیرسری (is_series=false): فیلد `selected_color` الزامی است و باید رنگ انتخاب شده ارسال شود
     - سیستم به صورت خودکار موجودی را بررسی می‌کند
@@ -227,8 +231,27 @@ async def submit_cart(
     # Calculate total amount
     total_amount = sum(item.quantity * item.price for item in cart_in.items)
 
+    # Find customer if not logged in but phone matches
+    customer_id = None
+    if current_customer:
+        customer_id = current_customer.id
+    else:
+        # Search for customer by phone or mobile
+        customer_result = await db.execute(
+            select(models.Customer).where(
+                or_(
+                    models.Customer.mobile == cart_in.customer_phone,
+                    models.Customer.phone == cart_in.customer_phone
+                )
+            )
+        )
+        found_customer = customer_result.scalars().first()
+        if found_customer:
+            customer_id = found_customer.id
+
     # Create cart
     cart = models.Cart(
+        customer_id=customer_id,
         customer_name=cart_in.customer_name,
         customer_phone=cart_in.customer_phone,
         customer_email=cart_in.customer_email,

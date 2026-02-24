@@ -7,6 +7,7 @@ from app.schemas.customer import (
     CustomerUpdate, 
     Customer, 
     CustomerDetail, 
+    CustomerRegister,
     BankAccountCreate, 
     BankAccountUpdate, 
     BankAccount,

@@ -15,6 +15,52 @@ from app.db.session import get_db
 router = APIRouter()
 
 
+@router.post("/auth/register", response_model=schemas.CustomerToken)
+async def customer_register(
+    register_data: schemas.CustomerRegister,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    ثبت‌نام مشتری جدید
+    """
+    # بررسی تکراری نبودن شماره موبایل
+    result = await db.execute(
+        select(models.Customer).where(
+            or_(
+                models.Customer.mobile == register_data.mobile,
+                models.Customer.phone == register_data.mobile
+            )
+        )
+    )
+    existing_customer = result.scalars().first()
+    
+    if existing_customer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="مشتری با این شماره موبایل قبلاً ثبت شده است",
+        )
+    
+    # ایجاد مشتری جدید
+    new_customer = models.Customer(
+        first_name=register_data.first_name,
+        last_name=register_data.last_name,
+        mobile=register_data.mobile,
+        hashed_password=security.get_password_hash(register_data.password),
+    )
+    db.add(new_customer)
+    await db.commit()
+    await db.refresh(new_customer)
+    
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return {
+        "access_token": security.create_access_token(
+            new_customer.id, expires_delta=access_token_expires
+        ),
+        "token_type": "bearer",
+        "customer_id": new_customer.id,
+    }
+
+
 @router.post("/auth/login", response_model=schemas.CustomerToken)
 async def customer_login(
     login_data: schemas.CustomerLogin,
@@ -353,9 +399,64 @@ async def get_customer_cart(
         ] if cart.items else [],
         "order_details": order_details,
         "total_amount": total_price,
+        "status": cart.status,
         "created_at": cart.created_at,
-        "updated_at": cart.updated_at,
+        "updated_at": cart.updated_at
     }
+
+
+@router.get("/orders", response_model=List[schemas.Cart])
+async def get_customer_orders(
+    db: AsyncSession = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    status: Optional[schemas.CartStatus] = None,
+    current_customer: models.Customer = Security(deps.get_current_customer),
+) -> Any:
+    """
+    دریافت لیست سفارشات (سبدهای خرید ثبت شده) مشتری
+    """
+    query = select(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.product).selectinload(models.Product.images)
+    ).where(models.Cart.customer_id == current_customer.id)
+    
+    if status:
+        query = query.where(models.Cart.status == status)
+    
+    query = query.order_by(models.Cart.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(query)
+    orders = result.scalars().unique().all()
+    return orders
+
+
+@router.get("/orders/{order_id}", response_model=schemas.Cart)
+async def get_customer_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_customer: models.Customer = Security(deps.get_current_customer),
+) -> Any:
+    """
+    دریافت جزئیات یک سفارش خاص
+    """
+    result = await db.execute(
+        select(models.Cart)
+        .options(
+            selectinload(models.Cart.items).selectinload(models.CartItem.product).selectinload(models.Product.images)
+        )
+        .where(
+            models.Cart.id == order_id,
+            models.Cart.customer_id == current_customer.id
+        )
+    )
+    order = result.scalars().unique().first()
+    
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="سفارش یافت نشد",
+        )
+    
+    return order
 
 
 @router.post("/cart/items", response_model=schemas.CartItem)

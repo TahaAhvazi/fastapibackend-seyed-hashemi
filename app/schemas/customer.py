@@ -112,6 +112,23 @@ class CustomerCreate(CustomerBase):
         }
 
 
+class CustomerRegister(BaseModel):
+    first_name: str
+    last_name: str
+    mobile: str
+    password: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "first_name": "علی",
+                "last_name": "محمدی",
+                "mobile": "09121234567",
+                "password": "password123"
+            }
+        }
+
+
 class CustomerUpdate(CustomerBase):
     current_balance: Optional[float] = None
     balance_notes: Optional[str] = None
