@@ -81,6 +81,26 @@ async def get_current_admin_or_warehouse_user(
     return current_user
 
 
+async def get_current_content_manager_user(
+    current_user: models.User = Depends(get_current_active_user),
+) -> models.User:
+    if current_user.role != schemas.UserRole.CONTENT_MANAGER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
+    return current_user
+
+
+async def get_current_admin_or_content_manager_user(
+    current_user: models.User = Depends(get_current_active_user),
+) -> models.User:
+    if current_user.role not in [schemas.UserRole.ADMIN, schemas.UserRole.CONTENT_MANAGER]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
+    return current_user
+
+
 # Customer authentication dependencies
 async def get_current_customer(
     credentials: HTTPAuthorizationCredentials = Security(customer_bearer_scheme),

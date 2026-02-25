@@ -267,7 +267,7 @@ async def create_article(
     excerpt: Optional[str] = Form(None),
     is_published: bool = Form(False),
     cover_image: Optional[UploadFile] = File(None),
-    current_user: models.User = Depends(deps.get_current_admin_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_content_manager_user),
 ) -> Any:
     """
     ایجاد مقاله جدید
@@ -394,7 +394,7 @@ async def update_article(
     excerpt: Optional[str] = Form(None),
     is_published: Optional[bool] = Form(None),
     cover_image: Optional[UploadFile] = File(None),
-    current_user: models.User = Depends(deps.get_current_admin_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_content_manager_user),
 ) -> Any:
     """
     به‌روزرسانی مقاله
@@ -484,7 +484,7 @@ async def delete_article(
     *,
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(deps.get_current_admin_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_content_manager_user),
 ) -> None:
     """
     حذف مقاله

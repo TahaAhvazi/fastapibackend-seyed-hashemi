@@ -8,6 +8,7 @@ class UserRole(str, Enum):
     ADMIN = "admin"
     ACCOUNTANT = "accountant"
     WAREHOUSE = "warehouse"
+    CONTENT_MANAGER = "content_manager"
 
 
 # Shared properties

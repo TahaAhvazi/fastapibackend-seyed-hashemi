@@ -49,3 +49,14 @@ from app.schemas.cart import (
 from app.schemas.slider import SliderCreate, SliderUpdate, Slider
 from app.schemas.article import ArticleCreate, ArticleUpdate, Article
 from app.schemas.category import CategoryCreate, CategoryUpdate, Category
+from app.schemas.content_management import (
+    OrganizationMemberCreate,
+    OrganizationMemberUpdate,
+    OrganizationMember,
+    ContentVideoCreate,
+    ContentVideoUpdate,
+    ContentVideo,
+    CampaignCreate,
+    CampaignUpdate,
+    Campaign,
+)

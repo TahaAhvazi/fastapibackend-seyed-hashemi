@@ -13,6 +13,7 @@ from app.core.security import get_password_hash
 from app.schemas.user import UserRole
 from app.schemas.invoice import InvoiceStatus, PaymentType
 from app.schemas.check import CheckStatus
+from sqlalchemy.exc import IntegrityError
 
 
 async def init_db() -> None:
@@ -23,9 +24,12 @@ async def init_db() -> None:
         user = result.scalars().first()
         
         if not user:
-            await _create_initial_users(db)
-            await _create_seed_data(db)
-            await db.commit()
+            try:
+                await _create_initial_users(db)
+                await _create_seed_data(db)
+                await db.commit()
+            except IntegrityError:
+                await db.rollback()
 
 
 async def _create_initial_users(db: AsyncSession) -> None:
@@ -78,83 +82,48 @@ async def _create_seed_data(db: AsyncSession) -> None:
     products = [
         Product(
             code="P001",
-            name="پارچه مخمل سلطنتی",  # Royal Velvet Fabric
-            description="پارچه مخمل با کیفیت عالی، مناسب برای مبلمان و پرده",  # High quality velvet fabric for furniture and curtains
-            image_url="/uploads/velvet.jpg",
-            year_production=1401,
-            category="مخمل",  # Velvet
-            unit="متر",  # Meter
-            pieces_per_roll=50,
+            name="پارچه مخمل سلطنتی",
+            description="پارچه مخمل با کیفیت عالی، مناسب برای مبلمان و پرده",
+            category="مخمل",
+            unit="متر",
             is_available=True,
-            colors="قرمز، آبی، سبز",  # Red, Blue, Green
-            part_number="VLV-001",
-            reorder_location="تهران، بازار",  # Tehran, Bazaar
-            purchase_price=250000,
-            sale_price=350000,
+            colors="قرمز، آبی، سبز",
         ),
         Product(
             code="P002",
-            name="پارچه کتان طبیعی",  # Natural Linen Fabric
-            description="پارچه کتان ۱۰۰٪ طبیعی با بافت زیبا",  # 100% natural linen fabric with beautiful texture
-            image_url="/uploads/linen.jpg",
-            year_production=1401,
-            category="کتان",  # Linen
-            unit="متر",  # Meter
-            pieces_per_roll=100,
+            name="پارچه کتان طبیعی",
+            description="پارچه کتان ۱۰۰٪ طبیعی با بافت زیبا",
+            category="کتان",
+            unit="متر",
             is_available=True,
-            colors="کرم، قهوه‌ای، طبیعی",  # Cream, Brown, Natural
-            part_number="LNN-002",
-            reorder_location="اصفهان، چهارباغ",  # Isfahan, Chahar Bagh
-            purchase_price=180000,
-            sale_price=280000,
+            colors="کرم، قهوه‌ای، طبیعی",
         ),
         Product(
             code="P003",
-            name="پارچه ابریشم خالص",  # Pure Silk Fabric
-            description="ابریشم خالص با کیفیت عالی، مناسب برای لباس مجلسی",  # High quality pure silk for formal dresses
-            image_url="/uploads/silk.jpg",
-            year_production=1400,
-            category="ابریشم",  # Silk
-            unit="متر",  # Meter
-            pieces_per_roll=30,
+            name="پارچه ابریشم خالص",
+            description="ابریشم خالص با کیفیت عالی، مناسب برای لباس مجلسی",
+            category="ابریشم",
+            unit="متر",
             is_available=True,
-            colors="طلایی، نقره‌ای، صورتی",  # Gold, Silver, Pink
-            part_number="SLK-003",
-            reorder_location="یزد، بازار سنتی",  # Yazd, Traditional Bazaar
-            purchase_price=500000,
-            sale_price=750000,
+            colors="طلایی، نقره‌ای، صورتی",
         ),
         Product(
             code="P004",
-            name="پارچه نخی گلدار",  # Floral Cotton Fabric
-            description="پارچه نخی با طرح گل‌های زیبا، مناسب برای پیراهن و لباس تابستانی",  # Cotton fabric with beautiful floral patterns for summer dresses
-            image_url="/uploads/cotton.jpg",
-            year_production=1401,
-            category="نخی",  # Cotton
-            unit="متر",  # Meter
-            pieces_per_roll=80,
+            name="پارچه نخی گلدار",
+            description="پارچه نخی با طرح گل‌های زیبا، مناسب برای پیراهن و لباس تابستانی",
+            category="نخی",
+            unit="متر",
             is_available=True,
-            colors="سفید با گل‌های رنگی",  # White with colorful flowers
-            part_number="CTN-004",
-            reorder_location="مشهد، خیابان خسروی",  # Mashhad, Khosravi Street
-            purchase_price=120000,
-            sale_price=180000,
+            colors="سفید با گل‌های رنگی",
         ),
         Product(
             code="P005",
-            name="پارچه ترمه یزد",  # Yazd Termeh Fabric
-            description="پارچه ترمه اصیل یزد با طرح‌های سنتی",  # Authentic Yazd Termeh fabric with traditional patterns
-            image_url="/uploads/termeh.jpg",
-            year_production=1399,
-            category="ترمه",  # Termeh
-            unit="متر",  # Meter
-            pieces_per_roll=20,
+            name="پارچه ترمه یزد",
+            description="پارچه ترمه اصیل یزد با طرح‌های سنتی",
+            category="ترمه",
+            unit="متر",
             is_available=True,
-            colors="قرمز، سبز، آبی با نقوش سنتی",  # Red, Green, Blue with traditional patterns
-            part_number="TRM-005",
-            reorder_location="یزد، میدان امیرچخماق",  # Yazd, Amir Chakhmaq Square
-            purchase_price=800000,
-            sale_price=1200000,
+            colors="قرمز، سبز، آبی با نقوش سنتی",
         ),
     ]
     

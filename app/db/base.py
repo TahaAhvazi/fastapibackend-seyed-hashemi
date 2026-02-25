@@ -11,3 +11,6 @@ from app.models.cart import Cart, CartItem  # noqa
 from app.models.slider import Slider  # noqa
 from app.models.article import Article  # noqa
 from app.models.site_settings import SiteSettings  # noqa
+from app.models.organization_member import OrganizationMember  # noqa
+from app.models.content_video import ContentVideo  # noqa
+from app.models.campaign import Campaign  # noqa

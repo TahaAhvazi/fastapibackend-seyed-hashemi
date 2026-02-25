@@ -9,7 +9,8 @@ import logging
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.db.init_db import init_db
-from app.db.session import engine, Base
+from app.db.session import engine
+from app.db.base import Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

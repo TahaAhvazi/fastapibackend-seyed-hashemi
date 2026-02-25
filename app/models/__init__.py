@@ -11,3 +11,6 @@ from app.models.slider import Slider
 from app.models.article import Article
 from app.models.site_settings import SiteSettings
 from app.models.category import Category
+from app.models.organization_member import OrganizationMember
+from app.models.content_video import ContentVideo
+from app.models.campaign import Campaign
