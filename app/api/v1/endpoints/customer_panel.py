@@ -58,6 +58,9 @@ async def customer_register(
         ),
         "token_type": "bearer",
         "customer_id": new_customer.id,
+        "first_name": new_customer.first_name,
+        "last_name": new_customer.last_name,
+        "phone_number": new_customer.mobile or new_customer.phone,
     }
 
 
@@ -109,6 +112,9 @@ async def customer_login(
         ),
         "token_type": "bearer",
         "customer_id": customer.id,
+        "first_name": customer.first_name,
+        "last_name": customer.last_name,
+        "phone_number": customer.mobile or customer.phone,
     }
 
 
