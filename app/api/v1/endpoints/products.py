@@ -23,10 +23,10 @@ async def add_product_images(
     db: AsyncSession = Depends(get_db),
     product_id: int,
     images: List[UploadFile] = File(..., description="عکس‌های جدید محصول"),
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     """
-    افزودن عکس جدید به یک محصول (admin/warehouse)
+    افزودن عکس جدید به یک محصول (admin/warehouse/content_manager)
     """
     result = await db.execute(
         select(models.Product)
@@ -111,10 +111,10 @@ async def delete_product_image(
     db: AsyncSession = Depends(get_db),
     product_id: int,
     image_id: int,
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     """
-    حذف یک عکس از محصول (admin/warehouse) + حذف فایل از دیسک
+    حذف یک عکس از محصول (admin/warehouse/content_manager) + حذف فایل از دیسک
     نکته: پارامتر image_id هم می‌تواند شناسه رکورد عکس باشد و هم ایندکس عکس برای همان محصول (۰ مبنا).
     """
     # Ensure product exists
@@ -514,11 +514,11 @@ async def update_product(
     available_colors: Optional[str] = Form(None, description="لیست رنگ‌های موجود (JSON string، مثلاً [\"قرمز\", \"آبی\", \"سبز\"])"),
     color_inventory: Optional[str] = Form(None, description="لیست موجودی هر رنگ (JSON string، مثلاً [\"5\", \"10\", \"3\"])"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های جدید محصول (اضافه می‌شوند به عکس‌های موجود)"),
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     """
-    ویرایش محصول (فقط برای admin یا warehouse)
-    Update a product (admin or warehouse only)
+    ویرایش محصول (فقط برای admin یا warehouse یا content_manager)
+    Update a product (admin or warehouse or content_manager only)
     
     همه فیلدها اختیاری هستند. فقط فیلدهایی که ارسال می‌شوند به‌روزرسانی می‌شوند.
     عکس‌های جدید به عکس‌های موجود اضافه می‌شوند.
@@ -730,10 +730,10 @@ async def delete_product(
     *,
     db: AsyncSession = Depends(get_db),
     product_id: int,
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     """
-    Delete a product (admin or warehouse only)
+    Delete a product (admin or warehouse or content_manager only)
     """
     result = await db.execute(
         select(models.Product)

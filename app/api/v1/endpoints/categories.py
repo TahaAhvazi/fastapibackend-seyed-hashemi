@@ -35,7 +35,7 @@ async def create_category(
     description: Optional[str] = Form(None, description="توضیحات"),
     visible: bool = Form(default=True, description="قابل نمایش در سایت"),
     image: Optional[UploadFile] = File(None, description="عکس دسته‌بندی"),
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     existing = await db.execute(select(models.Category).where(models.Category.name == name))
     if existing.scalars().first():
@@ -80,7 +80,7 @@ async def update_category(
     description: Optional[str] = Form(None),
     visible: Optional[bool] = Form(None),
     image: Optional[UploadFile] = File(None),
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     result = await db.execute(select(models.Category).where(models.Category.id == category_id))
     category = result.scalars().first()
@@ -138,7 +138,7 @@ async def delete_category(
     *,
     db: AsyncSession = Depends(get_db),
     category_id: int,
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     result = await db.execute(select(models.Category).where(models.Category.id == category_id))
     category = result.scalars().first()
