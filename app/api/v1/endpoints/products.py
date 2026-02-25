@@ -253,11 +253,11 @@ async def create_product(
     available_colors: Optional[str] = Form(None, description="لیست رنگ‌های موجود (JSON string، مثلاً [\"قرمز\", \"آبی\", \"سبز\"])"),
     color_inventory: Optional[str] = Form(None, description="لیست موجودی هر رنگ (JSON string، مثلاً [\"5\", \"10\", \"3\"])"),
     images: Optional[List[UploadFile]] = File(None, description="عکس‌های محصول"),
-    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_user),
+    current_user: models.User = Depends(deps.get_current_admin_or_warehouse_or_content_manager_user),
 ) -> Any:
     """
-    ایجاد محصول جدید (فقط برای admin یا warehouse)
-    Create new product (admin or warehouse only)
+    ایجاد محصول جدید (برای admin/warehouse/content_manager)
+    Create new product (admin/warehouse/content_manager)
     
     فیلدهای اجباری:
     - code: کد محصول (string)

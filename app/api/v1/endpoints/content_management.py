@@ -247,7 +247,183 @@ async def create_campaign(
     db.add(campaign)
     await db.commit()
     await db.refresh(campaign)
-    return campaign
+    result = await db.execute(
+        select(models.Campaign)
+        .options(selectinload(models.Campaign.products))
+        .where(models.Campaign.id == campaign.id)
+    )
+    campaign_loaded = result.scalars().first()
+    return campaign_loaded
+
+# ==================== Site Info Settings ====================
+
+@router.post("/site-info", status_code=status.HTTP_201_CREATED)
+async def upsert_site_info(
+    *,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_content_manager_user),
+    about_us: Optional[str] = Form(None),
+    satisfied_customers: Optional[str] = Form(None),
+    product_info: Optional[str] = Form(None),
+    experience_years: Optional[str] = Form(None),
+    buy_guide_1: Optional[str] = Form(None),
+    buy_guide_2: Optional[str] = Form(None),
+    buy_guide_3: Optional[str] = Form(None),
+    buy_guide_4: Optional[str] = Form(None),
+    phone_1: Optional[str] = Form(None),
+    phone_2: Optional[str] = Form(None),
+    phone_3: Optional[str] = Form(None),
+    phone_4: Optional[str] = Form(None),
+    phone_5: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    working_hours: Optional[str] = Form(None),
+    about_rans_text_2: Optional[str] = Form(None),
+    fabric_variety_count: Optional[str] = Form(None),
+    satisfied_customers_count: Optional[str] = Form(None),
+    our_mission: Optional[str] = Form(None),
+    our_vision: Optional[str] = Form(None),
+    our_history_1: Optional[str] = Form(None),
+    our_history_2: Optional[str] = Form(None),
+    our_history_3: Optional[str] = Form(None),
+    our_history_4: Optional[str] = Form(None),
+    our_history_5: Optional[str] = Form(None),
+    instagram_link: Optional[str] = Form(None),
+    whatsapp_link: Optional[str] = Form(None),
+    telegram_link: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+) -> Any:
+    pairs = {
+        "about_us": about_us,
+        "satisfied_customers": satisfied_customers,
+        "product_info": product_info,
+        "experience_years": experience_years,
+        "buy_guide_1": buy_guide_1,
+        "buy_guide_2": buy_guide_2,
+        "buy_guide_3": buy_guide_3,
+        "buy_guide_4": buy_guide_4,
+        "phone_1": phone_1,
+        "phone_2": phone_2,
+        "phone_3": phone_3,
+        "phone_4": phone_4,
+        "phone_5": phone_5,
+        "address": address,
+        "working_hours": working_hours,
+        "about_rans_text_2": about_rans_text_2,
+        "fabric_variety_count": fabric_variety_count,
+        "satisfied_customers_count": satisfied_customers_count,
+        "our_mission": our_mission,
+        "our_vision": our_vision,
+        "our_history_1": our_history_1,
+        "our_history_2": our_history_2,
+        "our_history_3": our_history_3,
+        "our_history_4": our_history_4,
+        "our_history_5": our_history_5,
+        "instagram_link": instagram_link,
+        "whatsapp_link": whatsapp_link,
+        "telegram_link": telegram_link,
+        "email": email,
+    }
+    updated_keys = []
+    for key, value in pairs.items():
+        if value is None:
+            continue
+        result = await db.execute(select(models.SiteSettings).where(models.SiteSettings.key == key))
+        setting = result.scalars().first()
+        if setting:
+            setting.value = value
+        else:
+            db.add(models.SiteSettings(key=key, value=value))
+        updated_keys.append(key)
+    await db.commit()
+    return {"updated": updated_keys}
+
+@router.get("/site-info")
+async def get_site_info(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    result = await db.execute(select(models.SiteSettings))
+    rows = result.scalars().all()
+    return {row.key: row.value for row in rows}
+
+@router.put("/site-info")
+async def update_site_info(
+    *,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_or_content_manager_user),
+    about_us: Optional[str] = Form(None),
+    satisfied_customers: Optional[str] = Form(None),
+    product_info: Optional[str] = Form(None),
+    experience_years: Optional[str] = Form(None),
+    buy_guide_1: Optional[str] = Form(None),
+    buy_guide_2: Optional[str] = Form(None),
+    buy_guide_3: Optional[str] = Form(None),
+    buy_guide_4: Optional[str] = Form(None),
+    phone_1: Optional[str] = Form(None),
+    phone_2: Optional[str] = Form(None),
+    phone_3: Optional[str] = Form(None),
+    phone_4: Optional[str] = Form(None),
+    phone_5: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    working_hours: Optional[str] = Form(None),
+    about_rans_text_2: Optional[str] = Form(None),
+    fabric_variety_count: Optional[str] = Form(None),
+    satisfied_customers_count: Optional[str] = Form(None),
+    our_mission: Optional[str] = Form(None),
+    our_vision: Optional[str] = Form(None),
+    our_history_1: Optional[str] = Form(None),
+    our_history_2: Optional[str] = Form(None),
+    our_history_3: Optional[str] = Form(None),
+    our_history_4: Optional[str] = Form(None),
+    our_history_5: Optional[str] = Form(None),
+    instagram_link: Optional[str] = Form(None),
+    whatsapp_link: Optional[str] = Form(None),
+    telegram_link: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+) -> Any:
+    pairs = {
+        "about_us": about_us,
+        "satisfied_customers": satisfied_customers,
+        "product_info": product_info,
+        "experience_years": experience_years,
+        "buy_guide_1": buy_guide_1,
+        "buy_guide_2": buy_guide_2,
+        "buy_guide_3": buy_guide_3,
+        "buy_guide_4": buy_guide_4,
+        "phone_1": phone_1,
+        "phone_2": phone_2,
+        "phone_3": phone_3,
+        "phone_4": phone_4,
+        "phone_5": phone_5,
+        "address": address,
+        "working_hours": working_hours,
+        "about_rans_text_2": about_rans_text_2,
+        "fabric_variety_count": fabric_variety_count,
+        "satisfied_customers_count": satisfied_customers_count,
+        "our_mission": our_mission,
+        "our_vision": our_vision,
+        "our_history_1": our_history_1,
+        "our_history_2": our_history_2,
+        "our_history_3": our_history_3,
+        "our_history_4": our_history_4,
+        "our_history_5": our_history_5,
+        "instagram_link": instagram_link,
+        "whatsapp_link": whatsapp_link,
+        "telegram_link": telegram_link,
+        "email": email,
+    }
+    updated_keys = []
+    for key, value in pairs.items():
+        if value is None:
+            continue
+        result = await db.execute(select(models.SiteSettings).where(models.SiteSettings.key == key))
+        setting = result.scalars().first()
+        if setting:
+            setting.value = value
+        else:
+            db.add(models.SiteSettings(key=key, value=value))
+        updated_keys.append(key)
+    await db.commit()
+    return {"updated": updated_keys}
 
 @router.delete("/campaigns/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_campaign(
